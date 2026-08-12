@@ -25,6 +25,21 @@ export default async function ProductPage({
     notFound();
   }
 
+  const productForCart = {
+    id: product.id,
+    name: product.name,
+    category: product.category,
+    price: product.price,
+    unit: product.unit,
+    image: product.image ?? "/products/placeholder.jpg",
+    description:
+      product.description ?? "Quality products from Basketly.",
+    stock: product.stock,
+  };
+
+  const isOutOfStock = product.stock <= 0;
+  const isLowStock = product.stock > 0 && product.stock <= 5;
+
   return (
     <main className="min-h-screen bg-[#FFFBEB]">
       {/* Breadcrumb */}
@@ -52,17 +67,21 @@ export default async function ProductPage({
                 </span>
               )}
 
-              {product.image ? (
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="text-[10rem] sm:text-[12rem]">
-                  {getProductEmoji(product.category)}
-                </div>
+              {isOutOfStock && (
+                <span className="absolute right-5 top-5 z-10 rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white shadow-sm">
+                  Out of stock
+                </span>
               )}
+
+              {!isOutOfStock && isLowStock && (
+                <span className="absolute right-5 top-5 z-10 rounded-full bg-orange-500 px-4 py-2 text-sm font-bold text-white shadow-sm">
+                  Low stock
+                </span>
+              )}
+
+              <div className="text-[10rem] sm:text-[12rem]">
+                {getProductEmoji(product.category)}
+              </div>
             </div>
 
             {/* Delivery Card */}
@@ -107,8 +126,8 @@ export default async function ProductPage({
 
             {/* Description */}
             <p className="text-base leading-7 text-gray-600">
-              {product.description ||
-                "Quality products carefully selected for your everyday needs."}
+              {product.description ??
+                "Quality products from Basketly."}
             </p>
 
             {/* Product Benefits */}
@@ -130,13 +149,7 @@ export default async function ProductPage({
             </div>
 
             {/* Add to Basket */}
-            <AddToBasket
-  product={{
-    ...product,
-    image: product.image ?? "",
-    description: product.description ?? "",
-  }}
-/>
+            <AddToBasket product={productForCart} />
 
             {/* Continue Shopping */}
             <Link
@@ -161,7 +174,7 @@ function getProductEmoji(category: string) {
       return "🥛";
 
     case "Groceries & Pantry":
-      return "🍚";
+      return "🛒";
 
     case "Drinks":
       return "🧃";
@@ -170,12 +183,12 @@ function getProductEmoji(category: string) {
       return "🍿";
 
     case "Household":
-      return "🧹";
+      return "🧺";
 
     case "Meat & Seafood":
       return "🥩";
 
     default:
-      return "🛒";
+      return "🛍️";
   }
 }

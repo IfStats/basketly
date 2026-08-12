@@ -1,21 +1,101 @@
+"use client";
+
 import Link from "next/link";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { useEffect, useMemo, useState } from "react";
 
-export default async function ShopPage() {
-  const products = await prisma.product.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: [
-      {
-        featured: "desc",
-      },
-      {
-        createdAt: "desc",
-      },
-    ],
-  });
+type Product = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  unit: string;
+  image: string | null;
+  description: string | null;
+  stock: number;
+  featured: boolean;
+};
+
+const categories = [
+  { label: "All Products", value: "" },
+  { label: "Fresh Produce", value: "Fresh Produce" },
+  { label: "Dairy & Eggs", value: "Dairy & Eggs" },
+  { label: "Groceries & Pantry", value: "Groceries & Pantry" },
+  { label: "Drinks", value: "Drinks" },
+  { label: "Snacks", value: "Snacks" },
+  { label: "Household", value: "Household" },
+];
+
+export default function ShopPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+  const [sort, setSort] = useState("featured");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const response = await fetch("/api/products");
+
+        if (!response.ok) {
+          throw new Error("Failed to load products.");
+        }
+
+        const data = await response.json();
+
+        setProducts(data.products || []);
+      } catch (error) {
+        console.error("Load products error:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadProducts();
+  }, []);
+
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
+
+    if (search.trim()) {
+      const query = search.toLowerCase().trim();
+
+      result = result.filter(
+        (product) =>
+          product.name.toLowerCase().includes(query) ||
+          product.category.toLowerCase().includes(query) ||
+          product.description?.toLowerCase().includes(query)
+      );
+    }
+
+    if (category) {
+      result = result.filter(
+        (product) => product.category === category
+      );
+    }
+
+    if (sort === "price-low") {
+      result.sort((a, b) => a.price - b.price);
+    }
+
+    if (sort === "price-high") {
+      result.sort((a, b) => b.price - a.price);
+    }
+
+    if (sort === "newest") {
+      result.sort((a, b) => b.id.localeCompare(a.id));
+    }
+
+    if (sort === "featured") {
+      result.sort(
+        (a, b) =>
+          Number(b.featured) - Number(a.featured)
+      );
+    }
+
+    return result;
+  }, [products, search, category, sort]);
 
   return (
     <main className="min-h-screen bg-[#FFFBEB]">
@@ -31,8 +111,8 @@ export default async function ShopPage() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-gray-600">
-            Find groceries, drinks, snacks, household essentials, and
-            everything else you need for your day.
+            Find groceries, drinks, snacks, household essentials,
+            and everything else you need for your day.
           </p>
 
           {/* Search */}
@@ -44,6 +124,10 @@ export default async function ShopPage() {
 
             <input
               type="search"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
               placeholder="Search groceries and essentials..."
               className="w-full rounded-full border border-gray-200 bg-gray-50 py-4 pl-12 pr-5 text-sm outline-none transition focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
             />
@@ -59,138 +143,170 @@ export default async function ShopPage() {
             <div className="rounded-3xl bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal size={18} />
+
                 <h2 className="font-bold text-[#1F2937]">
                   Categories
                 </h2>
               </div>
 
               <div className="mt-5 space-y-2">
-                <Link
-                  href="/shop"
-                  className="block rounded-xl bg-green-50 px-4 py-2.5 text-sm font-semibold text-[#16A34A]"
-                >
-                  All Products
-                </Link>
-
-                <Link
-                  href="/shop?category=fresh-produce"
-                  className="block rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Fresh Produce
-                </Link>
-
-                <Link
-                  href="/shop?category=dairy-eggs"
-                  className="block rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Dairy & Eggs
-                </Link>
-
-                <Link
-                  href="/shop?category=pantry"
-                  className="block rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Groceries & Pantry
-                </Link>
-
-                <Link
-                  href="/shop?category=drinks"
-                  className="block rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Drinks
-                </Link>
-
-                <Link
-                  href="/shop?category=snacks"
-                  className="block rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Snacks
-                </Link>
-
-                <Link
-                  href="/shop?category=household"
-                  className="block rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Household
-                </Link>
+                {categories.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setCategory(item.value)}
+                    className={`block w-full rounded-xl px-4 py-2.5 text-left text-sm font-semibold transition ${
+                      category === item.value
+                        ? "bg-green-50 text-[#16A34A]"
+                        : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
             </div>
           </aside>
 
           {/* Products */}
           <div className="flex-1">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex items-center justify-between gap-4">
               <p className="text-sm text-gray-500">
                 Showing{" "}
                 <span className="font-semibold text-gray-800">
-                  {products.length}
+                  {filteredProducts.length}
                 </span>{" "}
                 products
               </p>
 
-              <select className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm outline-none">
-                <option>Featured</option>
-                <option>Price: Low to High</option>
-                <option>Price: High to Low</option>
-                <option>Newest</option>
+              <select
+                value={sort}
+                onChange={(event) =>
+                  setSort(event.target.value)
+                }
+                className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm outline-none"
+              >
+                <option value="featured">Featured</option>
+                <option value="price-low">
+                  Price: Low to High
+                </option>
+                <option value="price-high">
+                  Price: High to Low
+                </option>
+                <option value="newest">Newest</option>
               </select>
             </div>
 
-            {products.length === 0 ? (
+            {loading ? (
+              <div className="rounded-3xl bg-white px-6 py-16 text-center shadow-sm">
+                <p className="text-sm text-gray-500">
+                  Loading products...
+                </p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="rounded-3xl bg-white px-6 py-16 text-center shadow-sm">
                 <h2 className="text-xl font-bold text-[#1F2937]">
-                  No products available
+                  No products found
                 </h2>
 
                 <p className="mt-2 text-sm text-gray-500">
-                  Check back soon for new products.
+                  Try another search or category.
                 </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setCategory("");
+                  }}
+                  className="mt-5 rounded-full bg-[#16A34A] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#15803D]"
+                >
+                  Clear filters
+                </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {products.map((product) => (
-                  <Link
-                    key={product.id}
-                    href={`/products/${product.id}`}
-                    className="group overflow-hidden rounded-3xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-                  >
-                    <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-gray-100 text-7xl">
-                      {product.featured && (
-                        <span className="absolute left-3 top-3 z-10 rounded-full bg-[#F97316] px-3 py-1 text-xs font-bold text-white">
-                          Featured
-                        </span>
-                      )}
+              <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                {filteredProducts.map((product) => {
+                  const isOutOfStock = product.stock <= 0;
 
-                      {product.image ? (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        />
-                      ) : (
-                        getProductEmoji(product.category)
-                      )}
-                    </div>
+                  const isLowStock =
+                    product.stock > 0 &&
+                    product.stock <= 5;
 
-                    <div className="p-4">
-                      <p className="text-xs text-gray-400">
-                        {product.category}
-                      </p>
+                  return (
+                    <Link
+                      key={product.id}
+                      href={`/products/${product.id}`}
+                      className="group overflow-hidden rounded-3xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                    >
+                      <div className="relative aspect-square overflow-hidden bg-gray-100">
+                        {product.featured && (
+                          <span className="absolute left-3 top-3 z-10 rounded-full bg-[#F97316] px-3 py-1 text-xs font-bold text-white">
+                            Featured
+                          </span>
+                        )}
 
-                      <h3 className="mt-1 font-bold text-[#1F2937]">
-                        {product.name}
-                      </h3>
+                        {isOutOfStock && (
+                          <span className="absolute right-3 top-3 z-10 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">
+                            Out of stock
+                          </span>
+                        )}
 
-                      <p className="mt-1 text-sm text-gray-500">
-                        {product.unit}
-                      </p>
+                        {!isOutOfStock && isLowStock && (
+                          <span className="absolute right-3 top-3 z-10 rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-white">
+                            Low stock
+                          </span>
+                        )}
 
-                      <p className="mt-3 text-lg font-bold text-[#16A34A]">
-                        ${product.price.toFixed(2)}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-7xl">
+                            🛍️
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4">
+                        <p className="text-xs text-gray-400">
+                          {product.category}
+                        </p>
+
+                        <h3 className="mt-1 font-bold text-[#1F2937]">
+                          {product.name}
+                        </h3>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                          {product.unit}
+                        </p>
+
+                        <div className="mt-3 flex items-end justify-between gap-2">
+                          <p className="text-lg font-bold text-[#16A34A]">
+                            ${product.price.toFixed(2)}
+                          </p>
+
+                          <p
+                            className={`text-xs font-semibold ${
+                              isOutOfStock
+                                ? "text-red-600"
+                                : isLowStock
+                                  ? "text-orange-600"
+                                  : "text-gray-400"
+                            }`}
+                          >
+                            {isOutOfStock
+                              ? "Unavailable"
+                              : `${product.stock} available`}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -198,25 +314,4 @@ export default async function ShopPage() {
       </section>
     </main>
   );
-}
-
-function getProductEmoji(category: string) {
-  switch (category) {
-    case "Fresh Produce":
-      return "🥬";
-    case "Dairy & Eggs":
-      return "🥛";
-    case "Groceries & Pantry":
-      return "🍚";
-    case "Drinks":
-      return "🧃";
-    case "Snacks":
-      return "🍿";
-    case "Household":
-      return "🧹";
-    case "Meat & Seafood":
-      return "🥩";
-    default:
-      return "🛒";
-  }
 }

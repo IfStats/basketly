@@ -32,10 +32,6 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CreateOrderInput;
 
-    /* -----------------------------
-       Validate customer
-    ----------------------------- */
-
     if (
       !body.customer?.firstName ||
       !body.customer?.lastName ||
@@ -43,16 +39,10 @@ export async function POST(request: Request) {
       !body.customer?.phone
     ) {
       return NextResponse.json(
-        {
-          error: "Customer information is incomplete.",
-        },
+        { error: "Customer information is incomplete." },
         { status: 400 }
       );
     }
-
-    /* -----------------------------
-       Validate delivery
-    ----------------------------- */
 
     if (
       !body.delivery?.address ||
@@ -61,29 +51,17 @@ export async function POST(request: Request) {
       !body.delivery?.time
     ) {
       return NextResponse.json(
-        {
-          error: "Delivery information is incomplete.",
-        },
+        { error: "Delivery information is incomplete." },
         { status: 400 }
       );
     }
-
-    /* -----------------------------
-       Validate basket
-    ----------------------------- */
 
     if (!body.items?.length) {
       return NextResponse.json(
-        {
-          error: "Your basket is empty.",
-        },
+        { error: "Your basket is empty." },
         { status: 400 }
       );
     }
-
-    /* -----------------------------
-       Validate quantities
-    ----------------------------- */
 
     for (const item of body.items) {
       if (
@@ -92,217 +70,176 @@ export async function POST(request: Request) {
         item.quantity <= 0
       ) {
         return NextResponse.json(
-          {
-            error: "One or more product quantities are invalid.",
-          },
+          { error: "Invalid product quantity." },
           { status: 400 }
         );
       }
     }
 
-    /*
-     * Combine duplicate product IDs.
-     *
-     * Example:
-     * Product A × 2
-     * Product A × 3
-     *
-     * becomes:
-     * Product A × 5
-     */
-    const quantities = new Map<string, number>();
+    const orderNumber = `BKT-${Date.now()
+      .toString()
+      .slice(-8)}`;
 
-    for (const item of body.items) {
-      quantities.set(
-        item.productId,
-        (quantities.get(item.productId) || 0) +
-          item.quantity
-      );
-    }
-
-    /*
-     * Everything below happens inside one database
-     * transaction.
-     *
-     * This is important because stock must not be
-     * reduced unless the order is successfully created.
-     */
-    const order = await prisma.$transaction(
-      async (tx) => {
-        /* -----------------------------
-           Load products
-        ----------------------------- */
-
-        const productIds = Array.from(
-          quantities.keys()
-        );
-
-        const products = await tx.product.findMany({
-          where: {
-            id: {
-              in: productIds,
-            },
-            isActive: true,
+    const order = await prisma.$transaction(async (tx) => {
+      /*
+       * Verify every product against the CURRENT database stock.
+       */
+      const products = await tx.product.findMany({
+        where: {
+          id: {
+            in: body.items.map((item) => item.productId),
           },
-        });
+          isActive: true,
+        },
+      });
 
-        /* -----------------------------
-           Make sure every product exists
-        ----------------------------- */
+      const productMap = new Map(
+        products.map((product) => [product.id, product])
+      );
 
-        if (products.length !== productIds.length) {
+      /*
+       * Validate stock and product prices from the database.
+       */
+      for (const item of body.items) {
+        const product = productMap.get(item.productId);
+
+        if (!product) {
           throw new Error(
-            "One or more products are no longer available."
+            `PRODUCT_NOT_FOUND:${item.productId}`
           );
         }
 
-        /* -----------------------------
-           Check stock
-        ----------------------------- */
-
-        for (const product of products) {
-          const requestedQuantity =
-            quantities.get(product.id) || 0;
-
-          if (product.stock < requestedQuantity) {
-            throw new Error(
-              `${product.name} is out of stock or does not have enough stock. Available: ${product.stock}.`
-            );
-          }
+        if (product.stock < item.quantity) {
+          throw new Error(
+            `INSUFFICIENT_STOCK:${product.name}:${product.stock}`
+          );
         }
-
-        /* -----------------------------
-           Create / update customer
-        ----------------------------- */
-
-        const customer = await tx.customer.upsert({
-          where: {
-            email: body.customer.email,
-          },
-          update: {
-            firstName: body.customer.firstName,
-            lastName: body.customer.lastName,
-            phone: body.customer.phone,
-          },
-          create: {
-            firstName: body.customer.firstName,
-            lastName: body.customer.lastName,
-            email: body.customer.email,
-            phone: body.customer.phone,
-          },
-        });
-
-        /* -----------------------------
-           Generate order number
-        ----------------------------- */
-
-        const orderNumber = `BKT-${Date.now()
-          .toString()
-          .slice(-8)}`;
-
-        /* -----------------------------
-           Create order
-        ----------------------------- */
-
-        const createdOrder = await tx.order.create({
-          data: {
-            orderNumber,
-
-            customerId: customer.id,
-
-            /*
-             * Automatically confirm the order because
-             * stock has already been verified.
-             */
-            status: "CONFIRMED",
-
-            paymentStatus: "COD",
-
-            subtotal: body.subtotal,
-            deliveryFee: body.deliveryFee,
-            total: body.total,
-
-            deliveryAddress:
-              body.delivery.address,
-
-            deliveryArea:
-              body.delivery.area,
-
-            deliveryCity:
-              body.delivery.city,
-
-            deliveryNotes:
-              body.delivery.notes || null,
-
-            deliveryTime:
-              body.delivery.time,
-
-            items: {
-              create: body.items.map((item) => ({
-                productId: item.productId,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-              })),
-            },
-
-            delivery: {
-              create: {
-                status: "PENDING",
-              },
-            },
-          },
-
-          include: {
-            customer: true,
-            items: true,
-            delivery: true,
-          },
-        });
-
-        /* -----------------------------
-           Reduce stock
-        ----------------------------- */
-
-        for (const product of products) {
-          const requestedQuantity =
-            quantities.get(product.id) || 0;
-
-          /*
-           * Conditional update:
-           *
-           * stock must still be >= requested quantity.
-           *
-           * This protects against overselling when
-           * multiple orders are placed simultaneously.
-           */
-          const updatedProduct =
-            await tx.product.updateMany({
-              where: {
-                id: product.id,
-                isActive: true,
-                stock: {
-                  gte: requestedQuantity,
-                },
-              },
-
-              data: {
-                stock: {
-                  decrement: requestedQuantity,
-                },
-              },
-            });
-
-          if (updatedProduct.count !== 1) {
-            throw new Error(
-              `${product.name} is no longer available in the requested quantity.`
-            );
-          }
-        }
-
-        return createdOrder;
       }
+
+      /*
+       * Use database prices rather than trusting prices
+       * sent by the browser.
+       */
+      const subtotal = body.items.reduce(
+        (sum, item) => {
+          const product = productMap.get(item.productId)!;
+
+          return (
+            sum +
+            product.price * item.quantity
+          );
+        },
+        0
+      );
+
+      const deliveryFee =
+        subtotal >= 50 || subtotal === 0
+          ? 0
+          : 4.99;
+
+      const total = subtotal + deliveryFee;
+
+      const customer = await tx.customer.upsert({
+        where: {
+          email: body.customer.email,
+        },
+        update: {
+          firstName: body.customer.firstName,
+          lastName: body.customer.lastName,
+          phone: body.customer.phone,
+        },
+        create: {
+          firstName: body.customer.firstName,
+          lastName: body.customer.lastName,
+          email: body.customer.email,
+          phone: body.customer.phone,
+        },
+      });
+
+      /*
+       * Reduce stock automatically.
+       */
+      for (const item of body.items) {
+  const product = productMap.get(item.productId);
+
+  if (!product) {
+    throw new Error(
+      `PRODUCT_NOT_FOUND:${item.productId}`
     );
+  }
+
+  const updatedProduct = await tx.product.updateMany({
+    where: {
+      id: product.id,
+      isActive: true,
+      stock: {
+        gte: item.quantity,
+      },
+    },
+    data: {
+      stock: {
+        decrement: item.quantity,
+      },
+    },
+  });
+
+  if (updatedProduct.count !== 1) {
+    throw new Error(
+      `INSUFFICIENT_STOCK:${product.name}:${product.stock}`
+    );
+  }
+}
+
+      /*
+       * Create the order using trusted database values.
+       */
+      return tx.order.create({
+        data: {
+          orderNumber,
+
+          customerId: customer.id,
+
+          subtotal,
+          deliveryFee,
+          total,
+
+          deliveryAddress: body.delivery.address,
+          deliveryArea: body.delivery.area,
+          deliveryCity: body.delivery.city,
+          deliveryNotes:
+            body.delivery.notes || null,
+          deliveryTime: body.delivery.time,
+
+          paymentStatus: "COD",
+
+          items: {
+            create: body.items.map((item) => {
+              const product =
+                productMap.get(item.productId)!;
+
+              return {
+                productId: product.id,
+                name: product.name,
+                price: product.price,
+                quantity: item.quantity,
+              };
+            }),
+          },
+
+          delivery: {
+            create: {
+              status: "PENDING",
+            },
+          },
+        },
+
+        include: {
+          customer: true,
+          items: true,
+          delivery: true,
+        },
+      });
+    });
 
     return NextResponse.json(
       {
@@ -312,28 +249,34 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "Create order error:",
-      error
-    );
+    console.error("Create order error:", error);
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unable to create order.";
-
-    /*
-     * Stock / availability errors are client errors,
-     * not server failures.
-     */
     if (
-      message.includes("out of stock") ||
-      message.includes("does not have enough stock") ||
-      message.includes("no longer available")
+      error instanceof Error &&
+      error.message.startsWith("PRODUCT_NOT_FOUND:")
     ) {
       return NextResponse.json(
         {
-          error: message,
+          error:
+            "One of the products in your basket is no longer available.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      error instanceof Error &&
+      error.message.startsWith("INSUFFICIENT_STOCK:")
+    ) {
+      const [, productName, availableStock] =
+        error.message.split(":");
+
+      return NextResponse.json(
+        {
+          error:
+            availableStock === "0"
+              ? `${productName} is currently out of stock.`
+              : `${productName} only has ${availableStock} available.`,
         },
         { status: 409 }
       );

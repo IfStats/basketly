@@ -1,38 +1,28 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type OrderItemInput = {
-  productId: string;
-  name: string;
-  price: number;
-  quantity: number;
-};
+const orderStatuses = [
+  "PENDING",
+  "CONFIRMED",
+  "PREPARING",
+  "READY_FOR_PICKUP",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "CANCELLED",
+] as const;
 
-type CreateOrderInput = {
-  customer: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-  };
-  delivery: {
-    address: string;
-    area: string;
-    city: string;
-    notes?: string;
-    time: string;
-  };
-  items: OrderItemInput[];
-  subtotal: number;
-  deliveryFee: number;
-  total: number;
-};
+type OrderStatus = (typeof orderStatuses)[number];
 
-/**
- * GET /api/admin/orders
- *
- * Returns the latest orders for the admin dashboard.
- */
+const deliveryStatusMap = {
+  PENDING: "PENDING",
+  CONFIRMED: "ASSIGNED",
+  PREPARING: "ASSIGNED",
+  READY_FOR_PICKUP: "ASSIGNED",
+  OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
+  DELIVERED: "DELIVERED",
+  CANCELLED: "PENDING",
+} as const;
+
 export async function GET() {
   try {
     const orders = await prisma.order.findMany({
@@ -62,120 +52,114 @@ export async function GET() {
   }
 }
 
-/**
- * POST /api/admin/orders
- *
- * Creates a new customer order.
- */
-export async function POST(request: Request) {
+export async function PATCH(request: Request) {
   try {
-    const body = (await request.json()) as CreateOrderInput;
+    const body = await request.json();
 
-    if (
-      !body.customer?.firstName ||
-      !body.customer?.lastName ||
-      !body.customer?.email ||
-      !body.customer?.phone
-    ) {
+    const orderId = body.orderId as string;
+    const status = body.status as OrderStatus;
+
+    if (!orderId || !status) {
       return NextResponse.json(
-        { error: "Customer information is incomplete." },
+        {
+          error: "Order ID and status are required.",
+        },
         { status: 400 }
       );
     }
 
-    if (
-      !body.delivery?.address ||
-      !body.delivery?.area ||
-      !body.delivery?.city ||
-      !body.delivery?.time
-    ) {
+    if (!orderStatuses.includes(status)) {
       return NextResponse.json(
-        { error: "Delivery information is incomplete." },
+        {
+          error: "Invalid order status.",
+        },
         { status: 400 }
       );
     }
 
-    if (!body.items?.length) {
-      return NextResponse.json(
-        { error: "Your basket is empty." },
-        { status: 400 }
-      );
-    }
-
-    const orderNumber = `BKT-${Date.now()
-      .toString()
-      .slice(-8)}`;
-
-    const customer = await prisma.customer.upsert({
+    const existingOrder = await prisma.order.findUnique({
       where: {
-        email: body.customer.email,
+        id: orderId,
       },
-      update: {
-        firstName: body.customer.firstName,
-        lastName: body.customer.lastName,
-        phone: body.customer.phone,
-      },
-      create: {
-        firstName: body.customer.firstName,
-        lastName: body.customer.lastName,
-        email: body.customer.email,
-        phone: body.customer.phone,
-      },
-    });
-
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        customerId: customer.id,
-
-        subtotal: body.subtotal,
-        deliveryFee: body.deliveryFee,
-        total: body.total,
-
-        deliveryAddress: body.delivery.address,
-        deliveryArea: body.delivery.area,
-        deliveryCity: body.delivery.city,
-        deliveryNotes: body.delivery.notes || null,
-        deliveryTime: body.delivery.time,
-
-        paymentStatus: "COD",
-
-        items: {
-          create: body.items.map((item) => ({
-            productId: item.productId,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-          })),
-        },
-
-        delivery: {
-          create: {
-            status: "PENDING",
-          },
-        },
-      },
-
       include: {
-        customer: true,
-        items: true,
         delivery: true,
       },
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        order,
-      },
-      { status: 201 }
-    );
+    if (!existingOrder) {
+      return NextResponse.json(
+        {
+          error: "Order not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (
+      existingOrder.status === "DELIVERED" ||
+      existingOrder.status === "CANCELLED"
+    ) {
+      return NextResponse.json(
+        {
+          error: `This order is already ${existingOrder.status.toLowerCase()} and cannot be changed.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const deliveryStatus = deliveryStatusMap[status];
+
+    const order = await prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: {
+          id: orderId,
+        },
+        data: {
+          status,
+        },
+        include: {
+          customer: true,
+          items: true,
+          delivery: true,
+        },
+      });
+
+      if (existingOrder.delivery) {
+        await tx.delivery.update({
+          where: {
+            orderId,
+          },
+          data: {
+            status: deliveryStatus,
+            ...(status === "DELIVERED"
+              ? {
+                  deliveredAt: new Date(),
+                }
+              : {}),
+            ...(status === "OUT_FOR_DELIVERY"
+              ? {
+                  pickedUpAt:
+                    existingOrder.delivery.pickedUpAt ??
+                    new Date(),
+                }
+              : {}),
+          },
+        });
+      }
+
+      return updatedOrder;
+    });
+
+    return NextResponse.json({
+      success: true,
+      order,
+    });
   } catch (error) {
-    console.error("Create order error:", error);
+    console.error("Update order status error:", error);
 
     return NextResponse.json(
       {
-        error: "Unable to create order.",
+        error: "Unable to update order status.",
       },
       { status: 500 }
     );
