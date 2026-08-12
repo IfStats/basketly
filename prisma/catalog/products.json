@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Fuji Apples",
+    "category": "Fresh Produce",
+    "unit": "1 ct",
+    "price": 0,
+    "description": "Fresh Fuji apples.",
+    "image": null,
+    "badge": null,
+    "stock": 100,
+    "featured": false
+  },
+  {
+    "name": "Organic Honeycrisp Apple",
+    "category": "Fresh Produce",
+    "unit": "1 each",
+    "price": 0,
+    "description": "Fresh organic Honeycrisp apple.",
+    "image": null,
+    "badge": "Organic",
+    "stock": 100,
+    "featured": false
+  },
+  {
+    "name": "Pink Lady Apples",
+    "category": "Fresh Produce",
+    "unit": "3 lb",
+    "price": 0,
+    "description": "Fresh Pink Lady apples.",
+    "image": null,
+    "badge": null,
+    "stock": 100,
+    "featured": false
+  }
+]

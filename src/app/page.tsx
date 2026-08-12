@@ -1,25 +1,30 @@
-import Navbar from "@/components/layout/Navbar";
-import Hero from "@/components/home/Hero";
-import Categories from "@/components/home/Categories";
+import Link from "next/link";
 import PopularProducts from "@/components/home/PopularProducts";
-import Deals from "@/components/home/Deals";
-import HowItWorks from "@/components/home/HowItWorks";
-import Footer from "@/components/layout/Footer";
+import { prisma } from "@/lib/prisma";
 
-export default function Home() {
+export default async function HomePage() {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+    },
+    orderBy: [
+      {
+        featured: "desc",
+      },
+      {
+        createdAt: "desc",
+      },
+    ],
+    take: 8,
+  });
+
   return (
-    <>
-      <Navbar />
+    <main>
+      {/* Keep your existing homepage sections here */}
 
-      <main>
-        <Hero />
-        <Categories />
-        <PopularProducts />
-        <Deals />
-        <HowItWorks />
-      </main>
+      <PopularProducts products={products} />
 
-      <Footer />
-    </>
+      {/* Keep your existing homepage sections here */}
+    </main>
   );
 }

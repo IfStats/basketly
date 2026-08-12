@@ -1,125 +1,103 @@
 import Link from "next/link";
-import { ArrowRight, Plus, ShoppingCart } from "lucide-react";
-import { products } from "@/data/products";
+import type { Product } from "@/types/product";
 
-export default function PopularProducts() {
+type PopularProductsProps = {
+  products: Product[];
+};
+
+export default function PopularProducts({
+  products,
+}: PopularProductsProps) {
   return (
-    <section className="bg-[#FFFBEB] py-16 sm:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-yellow-700">
-              <ShoppingCart size={14} />
-              Customer favorites
-            </div>
+    <section className="mx-auto max-w-7xl px-6 py-16">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#16A34A]">
+            Popular picks
+          </p>
 
-            <h2 className="text-3xl font-bold tracking-tight text-[#1F2937] sm:text-4xl">
-              Popular products
-            </h2>
+          <h2 className="mt-2 text-3xl font-bold text-[#1F2937]">
+            Shop popular products
+          </h2>
 
-            <p className="mt-3 max-w-xl text-gray-600">
-              Everyday essentials our customers love to add to their basket.
-            </p>
-          </div>
-
-          <Link
-            href="/shop"
-            className="inline-flex items-center gap-2 font-semibold text-[#16A34A] transition hover:text-[#15803D]"
-          >
-            Shop all products
-            <ArrowRight size={18} />
-          </Link>
+          <p className="mt-2 text-gray-500">
+            Fresh essentials customers love.
+          </p>
         </div>
 
-        {/* Product Grid */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {products.map((product) => (
-            <article
-              key={product.id}
-              className="group overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-            >
-              {/* Product Image */}
+        <Link
+          href="/shop"
+          className="text-sm font-bold text-[#16A34A] transition hover:text-[#15803D]"
+        >
+          View all
+        </Link>
+      </div>
+
+      {products.length === 0 ? (
+        <div className="mt-8 rounded-3xl bg-white p-10 text-center shadow-sm">
+          <p className="text-sm text-gray-500">
+            No products available right now.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {products.slice(0, 8).map((product) => {
+            const isOutOfStock = product.stock <= 0;
+
+            return (
               <Link
-                href={`/products/${product.id}`}
-                className="relative block aspect-square overflow-hidden bg-gray-100"
+                key={product.id}
+                href={"/products/" + product.id}
+                className="group overflow-hidden rounded-3xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
               >
-                {product.badge && (
-                  <span className="absolute left-3 top-3 z-10 rounded-full bg-[#F97316] px-3 py-1 text-xs font-bold text-white shadow-sm">
-                    {product.badge}
-                  </span>
-                )}
+                <div className="relative aspect-square overflow-hidden bg-gray-100">
+                  {product.badge && (
+                    <span className="absolute left-3 top-3 z-10 rounded-full bg-[#F97316] px-3 py-1 text-xs font-bold text-white">
+                      {product.badge}
+                    </span>
+                  )}
 
-                <div className="flex h-full w-full items-center justify-center text-7xl transition duration-500 group-hover:scale-110">
-                  {getProductEmoji(product.category)}
+                  {isOutOfStock && (
+                    <span className="absolute right-3 top-3 z-10 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">
+                      Out of stock
+                    </span>
+                  )}
+
+                  {product.image ? (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-6xl">
+                      🛍️
+                    </div>
+                  )}
                 </div>
-              </Link>
 
-              {/* Product Details */}
-              <div className="p-4 sm:p-5">
-                <p className="text-xs font-medium text-gray-400">
-                  {product.category}
-                </p>
+                <div className="p-4">
+                  <p className="text-xs text-gray-400">
+                    {product.category}
+                  </p>
 
-                <Link href={`/products/${product.id}`}>
-                  <h3 className="mt-1 line-clamp-2 min-h-[48px] font-bold text-[#1F2937] transition hover:text-[#16A34A]">
+                  <h3 className="mt-1 font-bold text-[#1F2937]">
                     {product.name}
                   </h3>
-                </Link>
 
-                <p className="mt-1 text-sm text-gray-500">
-                  {product.unit}
-                </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {product.unit}
+                  </p>
 
-                {/* Price + Cart */}
-                <div className="mt-4 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-lg font-bold text-[#16A34A]">
-                      ${product.price.toFixed(2)}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    aria-label={`Add ${product.name} to cart`}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-[#16A34A] text-white transition hover:bg-[#15803D] active:scale-95"
-                  >
-                    <Plus size={20} />
-                  </button>
+                  <p className="mt-3 text-lg font-bold text-[#16A34A]">
+                    ${product.price.toFixed(2)}
+                  </p>
                 </div>
-              </div>
-            </article>
-          ))}
+              </Link>
+            );
+          })}
         </div>
-      </div>
+      )}
     </section>
   );
-}
-
-function getProductEmoji(category: string) {
-  switch (category) {
-    case "Fresh Produce":
-      return "🥬";
-
-    case "Dairy & Eggs":
-      return "🥛";
-
-    case "Groceries & Pantry":
-      return "🍚";
-
-    case "Drinks":
-      return "🥤";
-
-    case "Snacks":
-      return "🍿";
-
-    case "Household":
-      return "🧴";
-
-    case "Meat & Seafood":
-      return "🥩";
-
-    default:
-      return "🛒";
-  }
 }

@@ -2,7 +2,7 @@
 
 import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { useState } from "react";
-import type { Product } from "@/data/products";
+import type { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 
 type AddToBasketProps = {
