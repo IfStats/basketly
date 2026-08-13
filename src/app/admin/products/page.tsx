@@ -240,8 +240,7 @@ export default function AdminProductsPage() {
         ...(editingId ? { id: editingId } : {}),
         name: form.name.trim(),
         slug: form.slug.trim(),
-        description:
-          form.description.trim() || null,
+        description: form.description.trim() || null,
         category: form.category.trim(),
         unit: form.unit.trim(),
         price,
@@ -252,16 +251,13 @@ export default function AdminProductsPage() {
         featured: form.featured,
       };
 
-      const response = await fetch(
-        "/api/admin/products",
-        {
-          method: editingId ? "PATCH" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await fetch("/api/admin/products", {
+        method: editingId ? "PATCH" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
       const data = await response.json();
 
@@ -311,19 +307,16 @@ export default function AdminProductsPage() {
       setError("");
       setSuccess("");
 
-      const response = await fetch(
-        "/api/admin/products",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: product.id,
-            isActive: !product.isActive,
-          }),
-        }
-      );
+      const response = await fetch("/api/admin/products", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: product.id,
+          isActive: !product.isActive,
+        }),
+      });
 
       const data = await response.json();
 
@@ -362,19 +355,16 @@ export default function AdminProductsPage() {
       setError("");
       setSuccess("");
 
-      const response = await fetch(
-        "/api/admin/products",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: product.id,
-            featured: !product.featured,
-          }),
-        }
-      );
+      const response = await fetch("/api/admin/products", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: product.id,
+          featured: !product.featured,
+        }),
+      });
 
       const data = await response.json();
 
@@ -423,18 +413,15 @@ export default function AdminProductsPage() {
       setError("");
       setSuccess("");
 
-      const response = await fetch(
-        "/api/admin/products",
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: product.id,
-          }),
-        }
-      );
+      const response = await fetch("/api/admin/products", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: product.id,
+        }),
+      });
 
       const data = await response.json();
 
@@ -519,6 +506,13 @@ export default function AdminProductsPage() {
                 />
                 Refresh
               </button>
+
+              <Link
+                href="/admin/products/import"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-[#16A34A] hover:text-[#16A34A]"
+              >
+                Import Catalog
+              </Link>
 
               <button
                 type="button"
