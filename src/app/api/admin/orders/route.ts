@@ -1,5 +1,7 @@
+import { requireAdminSession } from "@/lib/admin-auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+
 
 const orderStatuses = [
   "PENDING",
@@ -24,6 +26,14 @@ const deliveryStatusMap = {
 } as const;
 
 export async function GET() {
+  const authenticated = await requireAdminSession();
+
+if (!authenticated) {
+  return NextResponse.json(
+    { error: "Unauthorized." },
+    { status: 401 }
+  );
+}
   try {
     const orders = await prisma.order.findMany({
       orderBy: {

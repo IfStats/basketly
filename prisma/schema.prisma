@@ -83,9 +83,11 @@ model Order {
   status        OrderStatus   @default(PENDING)
   paymentStatus PaymentStatus @default(COD)
 
-  subtotal    Float
-  deliveryFee Float
-  total       Float
+  subtotal      Float
+  deliveryFee   Float
+  total         Float
+  promotionCode String?
+  discount      Float   @default(0)
 
   deliveryAddress String
   deliveryArea    String
@@ -143,4 +145,55 @@ model Delivery {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+}
+
+enum PromotionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_DELIVERY
+}
+
+model Promotion {
+  id   String        @id @default(cuid())
+  name String
+  code String        @unique
+  type PromotionType
+
+  value           Float  @default(0)
+  minimumOrder    Float?
+  maximumDiscount Float?
+
+  startsAt DateTime
+  endsAt   DateTime?
+
+  usageLimit Int?
+  usageCount Int  @default(0)
+
+  targetSegment String?
+  active        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+  @@index([code])
+  @@index([startsAt])
+  @@index([endsAt])
+  @@index([targetSegment])
+}
+
+model Category {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  image       String?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
 }

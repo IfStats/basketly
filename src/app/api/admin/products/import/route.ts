@@ -1,3 +1,4 @@
+import { requireAdminSession } from "@/lib/admin-auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -24,6 +25,14 @@ function slugify(value: string) {
 }
 
 export async function POST(request: Request) {
+const authenticated = await requireAdminSession();
+
+if (!authenticated) {
+  return NextResponse.json(
+    { error: "Unauthorized." },
+    { status: 401 }
+  );
+}
   try {
     const body = await request.json();
 
@@ -35,6 +44,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    
 
     const products = body.products as ImportProduct[];
 

@@ -3,10 +3,58 @@
 :root {
   --basketly-green: #16a34a;
   --basketly-green-dark: #15803d;
-  --basketly-yellow: #fbbf24;
-  --basketly-orange: #f97316;
-  --basketly-charcoal: #1f2937;
-  --basketly-cream: #fffbeb;
+  --basketly-green-soft: #f0fdf4;
+
+  --basketly-ink: #111827;
+  --basketly-ink-soft: #374151;
+
+  --basketly-bg: #f7f8f6;
+  --basketly-surface: #ffffff;
+
+  --basketly-border: #e5e7eb;
+  --basketly-muted: #6b7280;
+  --basketly-subtle: #9ca3af;
+
+  --basketly-warning: #f59e0b;
+  --basketly-danger: #dc2626;
+  --basketly-blue: #2563eb;
+
+  --basketly-radius-sm: 10px;
+  --basketly-radius-md: 16px;
+  --basketly-radius-lg: 22px;
+  --basketly-radius-xl: 28px;
+
+  --basketly-shadow-sm:
+    0 1px 2px rgba(17, 24, 39, 0.04);
+
+  --basketly-shadow-md:
+    0 10px 30px rgba(17, 24, 39, 0.06);
+
+  --basketly-shadow-lg:
+    0 20px 50px rgba(17, 24, 39, 0.10);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-basketly-green: var(--basketly-green);
+  --color-basketly-green-dark: var(--basketly-green-dark);
+  --color-basketly-green-soft: var(--basketly-green-soft);
+
+  --color-basketly-ink: var(--basketly-ink);
+  --color-basketly-ink-soft: var(--basketly-ink-soft);
+
+  --color-basketly-bg: var(--basketly-bg);
+  --color-basketly-surface: var(--basketly-surface);
+
+  --color-basketly-border: var(--basketly-border);
+  --color-basketly-muted: var(--basketly-muted);
+  --color-basketly-subtle: var(--basketly-subtle);
+
+  --color-basketly-warning: var(--basketly-warning);
+  --color-basketly-danger: var(--basketly-danger);
+  --color-basketly-blue: var(--basketly-blue);
 }
 
 * {
@@ -14,21 +62,229 @@
 }
 
 html {
+  min-height: 100%;
+  background: var(--basketly-bg);
   scroll-behavior: smooth;
 }
 
 body {
+  min-height: 100%;
   margin: 0;
-  background: #ffffff;
-  color: var(--basketly-charcoal);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--basketly-bg);
+  color: var(--basketly-ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
-a {
-  -webkit-tap-highlight-color: transparent;
+input,
+textarea,
+select {
+  font: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+img {
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgb(22 163 74 / 0.16);
+  color: var(--basketly-ink);
+}
+
+/* Scrollbars */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #d1d5db;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Focus */
+
+:focus-visible {
+  outline: 3px solid rgb(22 163 74 / 0.22);
+  outline-offset: 2px;
+}
+
+/* Reusable Basketly utility classes */
+
+.basketly-surface {
+  background: var(--basketly-surface);
+  border: 1px solid var(--basketly-border);
+  border-radius: var(--basketly-radius-lg);
+  box-shadow: var(--basketly-shadow-sm);
+}
+
+.basketly-surface-elevated {
+  background: var(--basketly-surface);
+  border: 1px solid var(--basketly-border);
+  border-radius: var(--basketly-radius-lg);
+  box-shadow: var(--basketly-shadow-md);
+}
+
+.basketly-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--basketly-green);
+  color: white;
+  font-weight: 700;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.basketly-button-primary:hover {
+  background: var(--basketly-green-dark);
+  box-shadow: 0 8px 22px rgb(22 163 74 / 0.18);
+}
+
+.basketly-button-primary:active {
+  transform: translateY(1px);
+}
+
+.basketly-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid var(--basketly-border);
+  border-radius: 999px;
+  background: white;
+  color: var(--basketly-ink);
+  font-weight: 700;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.basketly-button-secondary:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.basketly-input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--basketly-border);
+  border-radius: 14px;
+  background: #f9fafb;
+  padding: 0.75rem 0.95rem;
+  color: var(--basketly-ink);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.basketly-input:hover {
+  border-color: #d1d5db;
+}
+
+.basketly-input:focus {
+  border-color: var(--basketly-green);
+  background: white;
+  box-shadow: 0 0 0 4px rgb(22 163 74 / 0.08);
+  outline: none;
+}
+
+.basketly-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--basketly-ink-soft);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.basketly-container {
+  width: min(100% - 2rem, 1440px);
+  margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .basketly-container {
+    width: min(100% - 3rem, 1440px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .basketly-container {
+    width: min(100% - 4rem, 1440px);
+  }
+}
+
+/* Entrance animation */
+
+@keyframes basketly-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.basketly-fade-up {
+  animation: basketly-fade-up 350ms ease-out both;
+}
+
+/* Respect reduced-motion preferences */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

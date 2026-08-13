@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
+import { CountryProvider } from "@/context/CountryContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Basketly | Your Everyday Essentials, Delivered",
+    default: "Basketly | Fresh groceries, delivered",
     template: "%s | Basketly",
   },
   description:
@@ -30,10 +31,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
-      <body className="min-h-full flex flex-col">
-        <CartProvider>{children}</CartProvider>
+      <body>
+        <CountryProvider>
+          <CartProvider>
+            {children}
+          </CartProvider>
+        </CountryProvider>
       </body>
     </html>
   );

@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
+  ArrowUpRight,
+  Box,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  DollarSign,
   Package,
   RefreshCw,
-  Search,
   ShoppingBag,
+  Truck,
+  Users,
 } from "lucide-react";
 
 type OrderStatus =
@@ -33,56 +39,103 @@ type Order = {
   };
   items: {
     id: string;
-    name?: string;
-    price?: number;
+    name: string;
     quantity: number;
+    price: number;
   }[];
-  delivery?: {
-    status?: string;
-  };
 };
 
-const statusLabels: Record<OrderStatus, string> = {
-  PENDING: "Pending",
-  CONFIRMED: "Confirmed",
-  PREPARING: "Preparing",
-  READY_FOR_PICKUP: "Ready for pickup",
-  OUT_FOR_DELIVERY: "Out for delivery",
-  DELIVERED: "Delivered",
-  CANCELLED: "Cancelled",
+const statusMeta: Record<
+  OrderStatus,
+  {
+    label: string;
+    className: string;
+    dotClassName: string;
+  }
+> = {
+  PENDING: {
+    label: "Pending",
+    className:
+      "border-amber-200 bg-amber-50 text-amber-700",
+    dotClassName: "bg-amber-500",
+  },
+  CONFIRMED: {
+    label: "Confirmed",
+    className:
+      "border-blue-200 bg-blue-50 text-blue-700",
+    dotClassName: "bg-blue-500",
+  },
+  PREPARING: {
+    label: "Preparing",
+    className:
+      "border-orange-200 bg-orange-50 text-orange-700",
+    dotClassName: "bg-orange-500",
+  },
+  READY_FOR_PICKUP: {
+    label: "Ready for pickup",
+    className:
+      "border-violet-200 bg-violet-50 text-violet-700",
+    dotClassName: "bg-violet-500",
+  },
+  OUT_FOR_DELIVERY: {
+    label: "Out for delivery",
+    className:
+      "border-indigo-200 bg-indigo-50 text-indigo-700",
+    dotClassName: "bg-indigo-500",
+  },
+  DELIVERED: {
+    label: "Delivered",
+    className:
+      "border-emerald-200 bg-emerald-50 text-emerald-700",
+    dotClassName: "bg-emerald-500",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    className:
+      "border-red-200 bg-red-50 text-red-700",
+    dotClassName: "bg-red-500",
+  },
 };
 
-export default function AdminOrdersPage() {
+export default function AdminDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] =
-    useState<"ALL" | OrderStatus>("ALL");
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  async function fetchOrders() {
+  async function loadOrders() {
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch("/api/admin/orders", {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        "/api/admin/orders",
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (response.status === 401) {
+        window.location.href = "/admin/login";
+        return;
+      }
 
       if (!response.ok) {
-        throw new Error("Failed to load orders.");
+        throw new Error(
+          "Unable to load dashboard data."
+        );
       }
 
       const data = await response.json();
 
-      setOrders(data.orders || []);
+      setOrders(data.orders ?? []);
     } catch (err) {
-      console.error("Orders error:", err);
+      console.error("Dashboard error:", err);
 
       setError(
         err instanceof Error
           ? err.message
-          : "Failed to load orders."
+          : "Unable to load dashboard data."
       );
     } finally {
       setLoading(false);
@@ -90,230 +143,521 @@ export default function AdminOrdersPage() {
   }
 
   useEffect(() => {
-    fetchOrders();
+    loadOrders();
   }, []);
 
-  const filteredOrders = useMemo(() => {
-    const searchValue = search.trim().toLowerCase();
+  async function logout() {
+    if (loggingOut) return;
 
-    return orders.filter((order) => {
-      const customerName =
-        `${order.customer.firstName} ${order.customer.lastName}`.toLowerCase();
+    try {
+      setLoggingOut(true);
 
-      const matchesSearch =
-        !searchValue ||
-        order.orderNumber.toLowerCase().includes(searchValue) ||
-        customerName.includes(searchValue) ||
-        order.customer.email
-          ?.toLowerCase()
-          .includes(searchValue) ||
-        order.customer.phone
-          ?.toLowerCase()
-          .includes(searchValue);
+      await fetch("/api/admin/logout", {
+        method: "POST",
+      });
 
-      const matchesStatus =
-        statusFilter === "ALL" ||
-        order.status === statusFilter;
+      window.location.href = "/admin/login";
+    } catch (err) {
+      console.error("Logout error:", err);
+      setLoggingOut(false);
+    }
+  }
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [orders, search, statusFilter]);
+  const metrics = useMemo(() => {
+    const pending = orders.filter(
+      (order) => order.status === "PENDING"
+    ).length;
+
+    const active = orders.filter((order) =>
+      [
+        "CONFIRMED",
+        "PREPARING",
+        "READY_FOR_PICKUP",
+        "OUT_FOR_DELIVERY",
+      ].includes(order.status)
+    ).length;
+
+    const delivered = orders.filter(
+      (order) => order.status === "DELIVERED"
+    ).length;
+
+    const cancelled = orders.filter(
+      (order) => order.status === "CANCELLED"
+    ).length;
+
+    const revenue = orders.reduce(
+      (sum, order) => sum + order.total,
+      0
+    );
+
+    const customers = new Set(
+      orders.map(
+        (order) =>
+          order.customer.email ||
+          order.customer.phone ||
+          `${order.customer.firstName}-${order.customer.lastName}`
+      )
+    ).size;
+
+    const averageOrderValue =
+      orders.length > 0
+        ? revenue / orders.length
+        : 0;
+
+    return {
+      pending,
+      active,
+      delivered,
+      cancelled,
+      revenue,
+      customers,
+      averageOrderValue,
+    };
+  }, [orders]);
+
+  const recentOrders = orders.slice(0, 8);
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC]">
-      {/* Header */}
-      <header className="border-b bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-7">
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+    <main className="min-h-screen bg-[#F5F7FA] text-[#111827]">
+      <header className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-[1500px] px-6 py-5">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 transition hover:text-[#16A34A]"
-              >
-                <ArrowLeft size={16} />
-                Back to dashboard
-              </Link>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#16A34A] text-white shadow-sm">
+                  <ShoppingBag size={20} />
+                </div>
 
-              <p className="mt-5 text-sm font-semibold uppercase tracking-wider text-[#16A34A]">
-                Basketly Admin
-              </p>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#16A34A]">
+                    Basketly
+                  </p>
 
-              <h1 className="mt-1 text-3xl font-bold text-[#1F2937]">
-                Orders
-              </h1>
+                  <p className="text-sm font-semibold text-gray-500">
+                    Administration
+                  </p>
+                </div>
+              </div>
 
-              <p className="mt-1 text-sm text-gray-500">
-                Manage and monitor customer orders.
-              </p>
+              <div className="mt-6">
+                <h1 className="text-3xl font-bold tracking-tight text-[#111827]">
+                  Overview
+                </h1>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Monitor your store performance and order activity.
+                </p>
+              </div>
             </div>
 
-            <button
-              onClick={fetchOrders}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-[#16A34A] hover:text-[#16A34A] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RefreshCw
-                size={16}
-                className={loading ? "animate-spin" : ""}
-              />
-              Refresh
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/shop"
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+              >
+                View store
+                <ArrowUpRight size={16} />
+              </Link>
+
+              <button
+                type="button"
+                onClick={loadOrders}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#16A34A] hover:text-[#16A34A] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={16}
+                  className={
+                    loading
+                      ? "animate-spin"
+                      : ""
+                  }
+                />
+                Refresh
+              </button>
+
+              <button
+                type="button"
+                onClick={logout}
+                disabled={loggingOut}
+                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50"
+              >
+                {loggingOut
+                  ? "Signing out..."
+                  : "Sign out"}
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-6">
-          <Link
+      <nav className="border-b border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-[1500px] items-center gap-1 px-6">
+          <AdminNavLink
             href="/admin"
-            className="border-b-2 border-transparent px-4 py-4 text-sm font-semibold text-gray-500 transition hover:border-gray-300 hover:text-gray-900"
+            active
           >
-            Dashboard
-          </Link>
+            Overview
+          </AdminNavLink>
 
-          <Link
-            href="/admin/orders"
-            className="border-b-2 border-[#16A34A] px-4 py-4 text-sm font-semibold text-[#16A34A]"
-          >
+          <AdminNavLink href="/admin/orders">
             Orders
-          </Link>
+          </AdminNavLink>
+
+          <AdminNavLink href="/admin/products">
+            Products
+          </AdminNavLink>
 
           <Link
-            href="/shop"
-            className="ml-auto px-4 py-4 text-sm font-semibold text-gray-500 transition hover:text-[#16A34A]"
+            href="/admin/products/import"
+            className="ml-2 rounded-lg px-3 py-2 text-sm font-semibold text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
           >
-            View Store
+            Import catalog
           </Link>
         </div>
       </nav>
 
-      <section className="mx-auto max-w-7xl px-6 py-8">
-        {/* Error */}
+      <section className="mx-auto max-w-[1500px] px-6 py-8">
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
-            {error}
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            <span>{error}</span>
+
+            <button
+              type="button"
+              onClick={() => setError("")}
+              className="font-semibold hover:underline"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
-        {/* Search + Filter */}
-        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row">
-            <div className="relative flex-1">
-              <Search
-                size={19}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-              />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Total orders"
+            value={orders.length}
+            description="All recorded orders"
+            icon={<ShoppingBag size={20} />}
+          />
 
-              <input
-                type="search"
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Search by order number, customer, email or phone..."
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3.5 pl-11 pr-4 text-sm outline-none transition focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
-              />
+          <MetricCard
+            title="Active orders"
+            value={metrics.active}
+            description="Currently being fulfilled"
+            icon={<Truck size={20} />}
+          />
+
+          <MetricCard
+            title="Revenue"
+            value={`$${metrics.revenue.toFixed(2)}`}
+            description={`Avg. order $${metrics.averageOrderValue.toFixed(2)}`}
+            icon={<DollarSign size={20} />}
+          />
+
+          <MetricCard
+            title="Customers"
+            value={metrics.customers}
+            description="Unique customers"
+            icon={<Users size={20} />}
+          />
+        </div>
+
+        <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+          <section className="rounded-3xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-4 border-b border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">
+                  Operations
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold">
+                  Order pipeline
+                </h2>
+              </div>
+
+              <Link
+                href="/admin/orders"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-[#16A34A] hover:text-[#15803D]"
+              >
+                Manage orders
+                <ChevronRight size={16} />
+              </Link>
             </div>
 
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(
-                  event.target.value as
-                    | "ALL"
-                    | OrderStatus
-                )
-              }
-              className="rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-sm font-semibold text-gray-700 outline-none focus:border-[#16A34A]"
+            <div className="grid divide-y divide-gray-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+              <PipelineCard
+                label="Pending"
+                value={metrics.pending}
+                icon={<Clock3 size={18} />}
+                tone="amber"
+              />
+
+              <PipelineCard
+                label="In progress"
+                value={metrics.active}
+                icon={<Truck size={18} />}
+                tone="blue"
+              />
+
+              <PipelineCard
+                label="Delivered"
+                value={metrics.delivered}
+                icon={<CheckCircle2 size={18} />}
+                tone="green"
+              />
+
+              <PipelineCard
+                label="Cancelled"
+                value={metrics.cancelled}
+                icon={<Box size={18} />}
+                tone="red"
+              />
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">
+                  Quick actions
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold">
+                  Store management
+                </h2>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <QuickAction
+                href="/admin/products"
+                title="Manage products"
+                description="Update pricing, stock and visibility."
+              />
+
+              <QuickAction
+                href="/admin/products/import"
+                title="Import catalog"
+                description="Load products into your database."
+              />
+
+              <QuickAction
+                href="/admin/orders"
+                title="Review orders"
+                description="Manage fulfillment and delivery status."
+              />
+            </div>
+          </section>
+        </div>
+
+        <section className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-4 border-b border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">
+                Recent activity
+              </p>
+
+              <h2 className="mt-1 text-xl font-bold">
+                Latest orders
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-500">
+                The most recent customer transactions.
+              </p>
+            </div>
+
+            <Link
+              href="/admin/orders"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-[#16A34A] hover:text-[#15803D]"
             >
-              <option value="ALL">All statuses</option>
-              <option value="PENDING">Pending</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="PREPARING">Preparing</option>
-              <option value="READY_FOR_PICKUP">
-                Ready for pickup
-              </option>
-              <option value="OUT_FOR_DELIVERY">
-                Out for delivery
-              </option>
-              <option value="DELIVERED">Delivered</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Summary */}
-        <div className="mt-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">
-              Showing{" "}
-              <span className="font-bold text-gray-900">
-                {filteredOrders.length}
-              </span>{" "}
-              of{" "}
-              <span className="font-bold text-gray-900">
-                {orders.length}
-              </span>{" "}
-              orders
-            </p>
+              View all
+              <ChevronRight size={16} />
+            </Link>
           </div>
 
-          <div className="hidden items-center gap-2 text-sm text-gray-400 sm:flex">
-            <ShoppingBag size={16} />
-            {orders.length} total
-          </div>
-        </div>
-
-        {/* Orders */}
-        <div className="mt-4 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
           {loading ? (
             <div className="px-6 py-20 text-center">
               <RefreshCw
-                size={30}
+                size={28}
                 className="mx-auto animate-spin text-[#16A34A]"
               />
 
               <p className="mt-4 text-sm text-gray-500">
-                Loading orders...
+                Loading dashboard...
               </p>
             </div>
-          ) : filteredOrders.length === 0 ? (
+          ) : recentOrders.length === 0 ? (
             <div className="px-6 py-20 text-center">
-              <Package
-                size={42}
-                className="mx-auto text-gray-300"
-              />
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
+                <Package size={22} />
+              </div>
 
-              <h2 className="mt-4 text-lg font-bold text-[#1F2937]">
-                No orders found
-              </h2>
+              <h3 className="mt-4 font-bold">
+                No orders yet
+              </h3>
 
-              <p className="mt-2 text-sm text-gray-500">
-                Try changing your search or status filter.
+              <p className="mt-1 text-sm text-gray-500">
+                Customer activity will appear here.
               </p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {filteredOrders.map((order) => (
-                <OrderRow
+              {recentOrders.map((order) => (
+                <RecentOrderRow
                   key={order.id}
                   order={order}
                 />
               ))}
             </div>
           )}
-        </div>
+        </section>
       </section>
     </main>
   );
 }
 
-function OrderRow({
+function AdminNavLink({
+  href,
+  active = false,
+  children,
+}: {
+  href: string;
+  active?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`border-b-2 px-4 py-4 text-sm font-semibold transition ${
+        active
+          ? "border-[#16A34A] text-[#16A34A]"
+          : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-900"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  description,
+  icon,
+}: {
+  title: string;
+  value: string | number;
+  description: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="flex items-start justify-between">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-50 text-[#16A34A]">
+          {icon}
+        </div>
+
+        <ArrowUpRight
+          size={17}
+          className="text-gray-300"
+        />
+      </div>
+
+      <p className="mt-6 text-sm font-medium text-gray-500">
+        {title}
+      </p>
+
+      <p className="mt-1 text-3xl font-bold tracking-tight text-[#111827]">
+        {value}
+      </p>
+
+      <p className="mt-2 text-xs text-gray-400">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function PipelineCard({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  tone: "amber" | "blue" | "green" | "red";
+}) {
+  const toneClasses = {
+    amber:
+      "bg-amber-50 text-amber-700",
+    blue:
+      "bg-blue-50 text-blue-700",
+    green:
+      "bg-emerald-50 text-emerald-700",
+    red:
+      "bg-red-50 text-red-700",
+  };
+
+  return (
+    <div className="p-6">
+      <div
+        className={`flex h-10 w-10 items-center justify-center rounded-xl ${toneClasses[tone]}`}
+      >
+        {icon}
+      </div>
+
+      <p className="mt-5 text-sm font-medium text-gray-500">
+        {label}
+      </p>
+
+      <p className="mt-1 text-2xl font-bold">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function QuickAction({
+  href,
+  title,
+  description,
+}: {
+  href: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 transition hover:border-green-100 hover:bg-green-50"
+    >
+      <div>
+        <p className="text-sm font-bold text-gray-800 group-hover:text-[#15803D]">
+          {title}
+        </p>
+
+        <p className="mt-1 text-xs text-gray-500">
+          {description}
+        </p>
+      </div>
+
+      <ChevronRight
+        size={18}
+        className="text-gray-300 transition group-hover:text-[#16A34A]"
+      />
+    </Link>
+  );
+}
+
+function RecentOrderRow({
   order,
 }: {
   order: Order;
 }) {
+  const meta = statusMeta[order.status];
+
   const customerName =
     `${order.customer.firstName} ${order.customer.lastName}`;
 
@@ -322,124 +666,77 @@ function OrderRow({
     0
   );
 
-  const formattedDate = new Date(
-    order.createdAt
-  ).toLocaleString();
-
   return (
-    <div className="p-6 transition hover:bg-gray-50">
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-        {/* Order Info */}
-        <div className="flex min-w-0 items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-[#16A34A]">
-            <Package size={21} />
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="font-bold text-[#1F2937]">
-                {order.orderNumber}
-              </h2>
-
-              <StatusBadge status={order.status} />
-            </div>
-
-            <p className="mt-2 text-sm font-semibold text-gray-700">
-              {customerName}
-            </p>
-
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
-              {order.customer.email && (
-                <span>{order.customer.email}</span>
-              )}
-
-              {order.customer.phone && (
-                <span>{order.customer.phone}</span>
-              )}
-            </div>
-
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-              <span>{itemCount} items</span>
-              <span>{formattedDate}</span>
-            </div>
-          </div>
+    <div className="flex flex-col gap-4 px-6 py-5 transition hover:bg-gray-50 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 items-center gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
+          <Package size={18} />
         </div>
 
-        {/* Total */}
-        <div className="flex items-center justify-between gap-8 border-t pt-4 xl:min-w-[240px] xl:border-t-0 xl:pt-0">
-          <div>
-            <p className="text-xs text-gray-400">
-              Order total
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="font-bold text-gray-900">
+              {order.orderNumber}
             </p>
 
-            <p className="mt-1 text-xl font-bold text-[#1F2937]">
-              ${order.total.toFixed(2)}
-            </p>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${meta.className}`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${meta.dotClassName}`}
+              />
+
+              {meta.label}
+            </span>
           </div>
 
-          <div className="rounded-full bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500">
-            {itemCount}{" "}
-            {itemCount === 1 ? "item" : "items"}
-          </div>
+          <p className="mt-1 text-sm text-gray-500">
+            {customerName}
+          </p>
         </div>
       </div>
 
-      {/* Items */}
-      {order.items.length > 0 && (
-        <div className="mt-5 rounded-2xl bg-gray-50 p-4">
-          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-400">
-            Order items
+      <div className="flex flex-wrap items-center gap-8 lg:justify-end">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400">
+            Items
           </p>
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {order.items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between rounded-xl bg-white px-3 py-2.5"
-              >
-                <span className="truncate text-sm text-gray-700">
-                  {item.name || "Product"}
-                </span>
-
-                <span className="ml-3 shrink-0 text-xs font-bold text-gray-500">
-                  × {item.quantity}
-                </span>
-              </div>
-            ))}
-          </div>
+          <p className="mt-1 text-sm font-semibold text-gray-700">
+            {itemCount}
+          </p>
         </div>
-      )}
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400">
+            Total
+          </p>
+
+          <p className="mt-1 text-sm font-bold text-[#16A34A]">
+            ${order.total.toFixed(2)}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-gray-400">
+            Date
+          </p>
+
+          <p className="mt-1 text-sm font-medium text-gray-700">
+            {new Date(
+              order.createdAt
+            ).toLocaleDateString()}
+          </p>
+        </div>
+
+        <Link
+          href="/admin/orders"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400 transition hover:border-[#16A34A] hover:text-[#16A34A]"
+          aria-label={`View ${order.orderNumber}`}
+        >
+          <ChevronRight size={17} />
+        </Link>
+      </div>
     </div>
-  );
-}
-
-function StatusBadge({
-  status,
-}: {
-  status: OrderStatus;
-}) {
-  const styles: Record<OrderStatus, string> = {
-    PENDING:
-      "bg-yellow-50 text-yellow-700 border-yellow-200",
-    CONFIRMED:
-      "bg-blue-50 text-blue-700 border-blue-200",
-    PREPARING:
-      "bg-orange-50 text-orange-700 border-orange-200",
-    READY_FOR_PICKUP:
-      "bg-purple-50 text-purple-700 border-purple-200",
-    OUT_FOR_DELIVERY:
-      "bg-indigo-50 text-indigo-700 border-indigo-200",
-    DELIVERED:
-      "bg-green-50 text-green-700 border-green-200",
-    CANCELLED:
-      "bg-red-50 text-red-700 border-red-200",
-  };
-
-  return (
-    <span
-      className={`rounded-full border px-3 py-1 text-xs font-semibold ${styles[status]}`}
-    >
-      {statusLabels[status]}
-    </span>
   );
 }

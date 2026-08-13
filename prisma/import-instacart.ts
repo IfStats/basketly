@@ -155,7 +155,7 @@ function slugify(value: string) {
 
 function parseCatalog(raw: string): ParsedProduct[] {
   const lines = raw
-    .split("\n")
+    .split(/\r?\n/)
     .map((line) => normalizeName(line))
     .filter(Boolean);
 
@@ -172,6 +172,37 @@ function parseCatalog(raw: string): ParsedProduct[] {
       continue;
     }
 
+    // Format 1:
+    // Product Name | 1 lb
+    if (line.includes("|")) {
+      const separatorIndex = line.indexOf("|");
+
+      const name = line
+        .slice(0, separatorIndex)
+        .trim();
+
+      const unit = line
+        .slice(separatorIndex + 1)
+        .trim();
+
+      if (
+        name.length >= 3 &&
+        unit.length > 0 &&
+        !name.startsWith("http")
+      ) {
+        results.push({
+          name,
+          unit,
+          category: detectCategory(name),
+        });
+      }
+
+      continue;
+    }
+
+    // Format 2:
+    // Product Name
+    // 1 lb
     const next = lines[i + 1];
 
     if (!next) {
@@ -179,7 +210,7 @@ function parseCatalog(raw: string): ParsedProduct[] {
     }
 
     const isUnit =
-      /^(?:\d+(?:\.\d+)?|\~\d+(?:\.\d+)?)\s?(?:oz|fl oz|lb|lbs|g|kg|ml|l|ct|each|pack|set|sticks|pieces|each)\b/i.test(
+      /^(?:\d+(?:\.\d+)?|\~\d+(?:\.\d+)?)\s?(?:oz|fl oz|lb|lbs|g|kg|ml|l|ct|each|pack|set|sticks|pieces|bottles|count)\b/i.test(
         next
       );
 
@@ -188,7 +219,9 @@ function parseCatalog(raw: string): ParsedProduct[] {
     }
 
     const isUrl = line.startsWith("http");
-    const isMarkdown = line.startsWith("[") && line.includes("](");
+    const isMarkdown =
+      line.startsWith("[") &&
+      line.includes("](");
 
     if (isUrl || isMarkdown) {
       continue;
@@ -212,7 +245,6 @@ function parseCatalog(raw: string): ParsedProduct[] {
 
   return results;
 }
-
 async function main() {
   const sourcePath = path.join(
     process.cwd(),
