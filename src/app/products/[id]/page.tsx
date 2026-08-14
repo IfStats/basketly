@@ -6,6 +6,8 @@ import AddToBasket from "@/components/products/AddToBasket";
 import { useCountry } from "@/context/CountryContext";
 import ProductPrice from "@/components/products/ProductPrice";
 
+export const dynamic = "force-dynamic";
+
 type ProductPageProps = {
   params: Promise<{
     id: string;

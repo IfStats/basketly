@@ -9,6 +9,8 @@ import {
 import PopularProducts from "@/components/home/PopularProducts";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const categoryDefinitions = [
   {
     name: "Fresh Produce",
