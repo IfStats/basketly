@@ -1,18 +1,15 @@
 import { PrismaNeon } from "@prisma/adapter-neon";
-import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-function createPrismaClient(): PrismaClient {
-  const connectionString =
-    process.env.DATABASE_URL;
+function createPrismaClient() {
+  const connectionString = process.env.DATABASE_URL;
 
   if (!connectionString) {
-    throw new Error(
-      "DATABASE_URL is not configured."
-    );
+    throw new Error("DATABASE_URL is not configured.");
   }
 
   const adapter = new PrismaNeon({
@@ -24,7 +21,7 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-function getPrismaClient(): PrismaClient {
+function getPrismaClient() {
   if (!globalForPrisma.prisma) {
     globalForPrisma.prisma =
       createPrismaClient();
@@ -38,15 +35,12 @@ export const prisma = new Proxy(
   {
     get(_target, property) {
       const client = getPrismaClient();
-
       const value =
         client[property as keyof PrismaClient];
 
-      if (typeof value === "function") {
-        return value.bind(client);
-      }
-
-      return value;
+      return typeof value === "function"
+        ? value.bind(client)
+        : value;
     },
   }
 );
