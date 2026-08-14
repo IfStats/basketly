@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 function slugify(value: string) {
@@ -10,7 +10,11 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  void request;
+
+  const prisma = getPrisma();
+
   try {
     const authenticated = await requireAdminSession();
 
@@ -41,10 +45,14 @@ export async function GET() {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function POST(request: Request) {
+  const prisma = getPrisma();
+
   try {
     const authenticated = await requireAdminSession();
 
@@ -135,10 +143,14 @@ export async function POST(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function PATCH(request: Request) {
+  const prisma = getPrisma();
+
   try {
     const authenticated = await requireAdminSession();
 
@@ -248,10 +260,14 @@ export async function PATCH(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function DELETE(request: Request) {
+  const prisma = getPrisma();
+
   try {
     const authenticated = await requireAdminSession();
 
@@ -310,5 +326,7 @@ export async function DELETE(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 type OrderItemInput = {
   productId: string;
@@ -57,9 +57,7 @@ function calculatePromotionDiscount({
   value: number;
   subtotal: number;
   deliveryFee: number;
-  maximumDiscount:
-    | number
-    | null;
+  maximumDiscount: number | null;
 }) {
   let discount = 0;
 
@@ -97,6 +95,8 @@ function calculatePromotionDiscount({
 export async function POST(
   request: Request
 ) {
+  const prisma = getPrisma();
+
   try {
     const body =
       (await request.json()) as CreateOrderInput;
@@ -134,8 +134,7 @@ export async function POST(
     if (!body.items?.length) {
       return NextResponse.json(
         {
-          error:
-            "Your basket is empty.",
+          error: "Your basket is empty.",
         },
         { status: 400 }
       );
@@ -172,9 +171,6 @@ export async function POST(
     const order =
       await prisma.$transaction(
         async (tx) => {
-          /*
-           * Load products from the database.
-           */
           const products =
             await tx.product.findMany({
               where: {
@@ -198,9 +194,6 @@ export async function POST(
               )
             );
 
-          /*
-           * Validate stock.
-           */
           for (const item of body.items) {
             const product =
               productMap.get(
@@ -223,17 +216,19 @@ export async function POST(
             }
           }
 
-          /*
-           * Recalculate subtotal using
-           * trusted database prices.
-           */
           const subtotal =
             body.items.reduce(
               (sum, item) => {
                 const product =
                   productMap.get(
                     item.productId
-                  )!;
+                  );
+
+                if (!product) {
+                  throw new Error(
+                    `PRODUCT_NOT_FOUND:${item.productId}`
+                  );
+                }
 
                 return (
                   sum +
@@ -250,10 +245,6 @@ export async function POST(
               ? 0
               : 4.99;
 
-          /*
-           * Upsert customer before checking
-           * segment-specific promotions.
-           */
           const customer =
             await tx.customer.upsert({
               where: {
@@ -292,13 +283,7 @@ export async function POST(
               },
             });
 
-          /*
-           * Validate and calculate promotion.
-           */
-       
-
-         let discount = 0;
-
+          let discount = 0;
           let deliveryFee =
             baseDeliveryFee;
 
@@ -364,11 +349,6 @@ export async function POST(
               );
             }
 
-            /*
-             * Calculate the customer's current
-             * CRM segment using their existing
-             * order history.
-             */
             if (
               promotion.targetSegment
             ) {
@@ -407,7 +387,12 @@ export async function POST(
                     )
                   : null;
 
-              let customerSegment =
+              let customerSegment:
+                | "NEW"
+                | "VIP"
+                | "INACTIVE"
+                | "AT_RISK"
+                | "RETURNING" =
                 "NEW";
 
               if (
@@ -467,21 +452,15 @@ export async function POST(
               deliveryFee = 0;
             }
 
-          
-
-            /*
-             * Increment usage inside the
-             * same transaction.
-             */
             const updatedPromotion =
               await tx.promotion.updateMany({
                 where: {
                   id: promotion.id,
                   active: true,
-
                   OR: [
                     {
-                      usageLimit: null,
+                      usageLimit:
+                        null,
                     },
                     {
                       usageCount: {
@@ -509,23 +488,18 @@ export async function POST(
             }
           }
 
-          /*
-           * Final trusted total.
-           */
-          const total = Math.max(
-            0,
-            Number(
-              (
-                subtotal +
-                deliveryFee -
-                discount
-              ).toFixed(2)
-            )
-          );
+          const total =
+            Math.max(
+              0,
+              Number(
+                (
+                  subtotal +
+                  deliveryFee -
+                  discount
+                ).toFixed(2)
+              )
+            );
 
-          /*
-           * Reduce stock atomically.
-           */
           for (const item of body.items) {
             const product =
               productMap.get(
@@ -567,25 +541,17 @@ export async function POST(
             }
           }
 
-          /*
-           * Create the order using only
-           * trusted database calculations.
-           */
           return tx.order.create({
-  data: {
-    orderNumber,
-
-    customerId: customer.id,
-
-    subtotal,
-
-    deliveryFee,
-
-    total,
-
-    promotionCode: promotionCode || null,
-
-    discount,
+            data: {
+              orderNumber,
+              customerId:
+                customer.id,
+              subtotal,
+              deliveryFee,
+              total,
+              promotionCode:
+                promotionCode || null,
+              discount,
 
               deliveryAddress:
                 body.delivery.address,
@@ -612,7 +578,13 @@ export async function POST(
                       const product =
                         productMap.get(
                           item.productId
-                        )!;
+                        );
+
+                      if (!product) {
+                        throw new Error(
+                          `PRODUCT_NOT_FOUND:${item.productId}`
+                        );
+                      }
 
                       return {
                         productId:
@@ -683,8 +655,7 @@ export async function POST(
         ,
         productName,
         availableStock,
-      ] =
-        error.message.split(":");
+      ] = error.message.split(":");
 
       return NextResponse.json(
         {
@@ -806,5 +777,7 @@ export async function POST(
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

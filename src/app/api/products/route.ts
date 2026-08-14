@@ -1,28 +1,34 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function GET() {
+  const prisma = getPrisma();
+
   try {
-    const products = await prisma.product.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: [
-        {
-          featured: "desc",
+    const products =
+      await prisma.product.findMany({
+        where: {
+          isActive: true,
         },
-        {
-          createdAt: "desc",
-        },
-      ],
-    });
+        orderBy: [
+          {
+            featured: "desc",
+          },
+          {
+            createdAt: "desc",
+          },
+        ],
+      });
 
     return NextResponse.json({
       success: true,
       products,
     });
   } catch (error) {
-    console.error("Fetch products error:", error);
+    console.error(
+      "Fetch products error:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -30,5 +36,7 @@ export async function GET() {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

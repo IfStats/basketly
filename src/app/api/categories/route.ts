@@ -1,29 +1,32 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export async function GET() {
+  const prisma = getPrisma();
+
   try {
-    const categories = await prisma.category.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: [
-        {
-          sortOrder: "asc",
+    const categories =
+      await prisma.category.findMany({
+        where: {
+          isActive: true,
         },
-        {
-          name: "asc",
+        orderBy: [
+          {
+            sortOrder: "asc",
+          },
+          {
+            name: "asc",
+          },
+        ],
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          image: true,
+          sortOrder: true,
         },
-      ],
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        description: true,
-        image: true,
-        sortOrder: true,
-      },
-    });
+      });
 
     return NextResponse.json({
       success: true,
@@ -41,5 +44,7 @@ export async function GET() {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

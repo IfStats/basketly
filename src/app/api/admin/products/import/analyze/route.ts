@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import {
-  requireAdminSession,
-} from "@/lib/admin-auth";
+import { requireAdminSession } from "@/lib/admin-auth";
 
 type RawRow = Record<string, unknown>;
 
@@ -19,10 +17,7 @@ type NormalizedProduct = {
   isActive: boolean;
 };
 
-const fieldAliases: Record<
-  keyof NormalizedProduct,
-  string[]
-> = {
+const fieldAliases: Record<keyof NormalizedProduct, string[]> = {
   name: [
     "name",
     "product",
@@ -33,6 +28,7 @@ const fieldAliases: Record<
     "item name",
     "item_name",
   ],
+
   category: [
     "category",
     "categories",
@@ -41,6 +37,7 @@ const fieldAliases: Record<
     "product category",
     "product_category",
   ],
+
   unit: [
     "unit",
     "size",
@@ -50,6 +47,7 @@ const fieldAliases: Record<
     "quantity unit",
     "weight",
   ],
+
   price: [
     "price",
     "selling price",
@@ -61,6 +59,7 @@ const fieldAliases: Record<
     "unit price",
     "unit_price",
   ],
+
   stock: [
     "stock",
     "inventory",
@@ -71,12 +70,14 @@ const fieldAliases: Record<
     "stock quantity",
     "stock_quantity",
   ],
+
   description: [
     "description",
     "details",
     "product description",
     "product_description",
   ],
+
   image: [
     "image",
     "image url",
@@ -86,6 +87,7 @@ const fieldAliases: Record<
     "photo_url",
     "picture",
   ],
+
   badge: [
     "badge",
     "tag",
@@ -93,12 +95,14 @@ const fieldAliases: Record<
     "product badge",
     "product_badge",
   ],
+
   featured: [
     "featured",
     "is featured",
     "is_featured",
     "highlight",
   ],
+
   isActive: [
     "active",
     "is active",
@@ -108,7 +112,7 @@ const fieldAliases: Record<
   ],
 };
 
-function cleanKey(value: string) {
+function cleanKey(value: string): string {
   return value
     .toLowerCase()
     .trim()
@@ -119,17 +123,17 @@ function cleanKey(value: string) {
 function findColumn(
   headers: string[],
   field: keyof NormalizedProduct
-) {
-  const aliases = fieldAliases[field];
+): string | null {
+  const aliases = fieldAliases[field].map(cleanKey);
 
+  // Exact match first.
   for (const header of headers) {
-    const normalizedHeader = cleanKey(header);
-
-    if (aliases.includes(normalizedHeader)) {
+    if (aliases.includes(cleanKey(header))) {
       return header;
     }
   }
 
+  // Then partial match.
   for (const header of headers) {
     const normalizedHeader = cleanKey(header);
 
@@ -147,18 +151,15 @@ function findColumn(
   return null;
 }
 
-function textValue(value: unknown) {
-  if (
-    value === null ||
-    value === undefined
-  ) {
+function textValue(value: unknown): string {
+  if (value === null || value === undefined) {
     return "";
   }
 
   return String(value).trim();
 }
 
-function parseNumber(value: unknown) {
+function parseNumber(value: unknown): number | null {
   if (
     value === null ||
     value === undefined ||
@@ -171,17 +172,19 @@ function parseNumber(value: unknown) {
     .replace(/[$€£,\s]/g, "")
     .trim();
 
+  if (!cleaned) {
+    return null;
+  }
+
   const parsed = Number(cleaned);
 
-  return Number.isFinite(parsed)
-    ? parsed
-    : null;
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function parseBoolean(
   value: unknown,
   defaultValue: boolean
-) {
+): boolean {
   if (
     value === null ||
     value === undefined ||
@@ -195,17 +198,31 @@ function parseBoolean(
     .toLowerCase();
 
   if (
-    ["true", "1", "yes", "y", "on"].includes(
-      normalized
-    )
+    [
+      "true",
+      "1",
+      "yes",
+      "y",
+      "on",
+      "active",
+      "enabled",
+      "featured",
+    ].includes(normalized)
   ) {
     return true;
   }
 
   if (
-    ["false", "0", "no", "n", "off"].includes(
-      normalized
-    )
+    [
+      "false",
+      "0",
+      "no",
+      "n",
+      "off",
+      "inactive",
+      "disabled",
+      "not featured",
+    ].includes(normalized)
   ) {
     return false;
   }
@@ -222,7 +239,7 @@ function normalizeRow(
 ): NormalizedProduct {
   const read = (
     field: keyof NormalizedProduct
-  ) => {
+  ): unknown => {
     const column = mapping[field];
 
     return column
@@ -231,33 +248,47 @@ function normalizeRow(
   };
 
   const price = parseNumber(read("price"));
-  const stockValue = parseNumber(
-    read("stock")
-  );
+  const stockValue = parseNumber(read("stock"));
 
   return {
     name: textValue(read("name")),
+
     category: textValue(read("category")),
+
     unit: textValue(read("unit")),
+
     price,
+
     stock:
       stockValue !== null
-        ? Math.max(
-            0,
-            Math.floor(stockValue)
-          )
+        ? Math.max(0, Math.floor(stockValue))
         : 0,
+
     description:
-      textValue(read("description")) ||
-      null,
+      textValue(read("description")) || null,
+
     image:
       textValue(read("image")) || null,
+
     badge:
       textValue(read("badge")) || null,
+
+    /*
+     * These fields are OPTIONAL in the uploaded catalog.
+     *
+     * If the columns do not exist:
+     *
+     * featured -> false
+     * isActive -> true
+     *
+     * This means missing badge / featured / isActive
+     * will NOT prevent the catalog from being analyzed.
+     */
     featured: parseBoolean(
       read("featured"),
       false
     ),
+
     isActive: parseBoolean(
       read("isActive"),
       true
@@ -267,7 +298,7 @@ function normalizeRow(
 
 function detectFileType(
   filename: string
-) {
+): "spreadsheet" | "csv" | "json" | null {
   const extension =
     filename
       .split(".")
@@ -275,7 +306,8 @@ function detectFileType(
       ?.toLowerCase() || "";
 
   if (
-    ["xlsx", "xls"].includes(extension)
+    extension === "xlsx" ||
+    extension === "xls"
   ) {
     return "spreadsheet";
   }
@@ -295,16 +327,26 @@ export async function POST(
   request: Request
 ) {
   try {
+    /*
+     * Admin authentication.
+     */
     const authenticated =
       await requireAdminSession();
 
     if (!authenticated) {
       return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
+        {
+          error: "Unauthorized.",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
+    /*
+     * Read multipart form data.
+     */
     const formData =
       await request.formData();
 
@@ -316,10 +358,15 @@ export async function POST(
           error:
             "A catalog file is required.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
+    /*
+     * Validate file type.
+     */
     const fileType = detectFileType(
       file.name
     );
@@ -330,16 +377,24 @@ export async function POST(
           error:
             "Unsupported file type. Use CSV, XLSX, XLS or JSON.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
+    /*
+     * Validate file size.
+     */
     if (file.size === 0) {
       return NextResponse.json(
         {
-          error: "The uploaded file is empty.",
+          error:
+            "The uploaded file is empty.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
@@ -349,16 +404,24 @@ export async function POST(
           error:
             "File is too large. Maximum size is 10 MB.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
+    /*
+     * Convert uploaded file to Buffer.
+     */
     const buffer = Buffer.from(
       await file.arrayBuffer()
     );
 
     let rows: RawRow[] = [];
 
+    /*
+     * JSON import.
+     */
     if (fileType === "json") {
       const text =
         buffer.toString("utf8");
@@ -373,7 +436,9 @@ export async function POST(
             error:
               "The JSON file is invalid.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
@@ -383,7 +448,9 @@ export async function POST(
             error:
               "JSON catalog must contain an array of products.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
@@ -396,11 +463,45 @@ export async function POST(
           !Array.isArray(value)
       );
     } else {
-      const workbook =
-        XLSX.read(buffer, {
-          type: "buffer",
-          cellDates: true,
-        });
+      /*
+       * CSV / XLS / XLSX import.
+       */
+      let workbook: XLSX.WorkBook;
+
+      try {
+        workbook = XLSX.read(
+          buffer,
+          {
+            type: "buffer",
+            cellDates: true,
+          }
+        );
+      } catch {
+        return NextResponse.json(
+          {
+            error:
+              "Unable to read the spreadsheet. Please check that the file is valid.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      if (
+        !workbook.SheetNames ||
+        workbook.SheetNames.length === 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "The spreadsheet contains no worksheets.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
 
       const firstSheet =
         workbook.Sheets[
@@ -411,9 +512,11 @@ export async function POST(
         return NextResponse.json(
           {
             error:
-              "The spreadsheet contains no worksheets.",
+              "The spreadsheet contains no usable worksheet.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
@@ -427,16 +530,24 @@ export async function POST(
         );
     }
 
+    /*
+     * Empty catalog check.
+     */
     if (rows.length === 0) {
       return NextResponse.json(
         {
           error:
             "No product rows were detected.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
+    /*
+     * Detect all available headers.
+     */
     const headers = Array.from(
       new Set(
         rows.flatMap((row) =>
@@ -445,30 +556,104 @@ export async function POST(
       )
     );
 
-    const fields: (keyof NormalizedProduct)[] =
-      [
-        "name",
-        "category",
-        "unit",
-        "price",
-        "stock",
-        "description",
-        "image",
-        "badge",
-        "featured",
-        "isActive",
-      ];
+    if (headers.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No catalog columns were detected.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
-    const mapping = Object.fromEntries(
-      fields.map((field) => [
-        field,
-        findColumn(headers, field),
-      ])
-    ) as Record<
-      keyof NormalizedProduct,
-      string | null
-    >;
+    /*
+     * Fields expected by Basketly.
+     */
+    const fields: (
+      keyof NormalizedProduct
+    )[] = [
+      "name",
+      "category",
+      "unit",
+      "price",
+      "stock",
+      "description",
+      "image",
+      "badge",
+      "featured",
+      "isActive",
+    ];
 
+    /*
+     * Automatically map uploaded columns.
+     */
+    const mapping =
+      Object.fromEntries(
+        fields.map((field) => [
+          field,
+          findColumn(headers, field),
+        ])
+      ) as Record<
+        keyof NormalizedProduct,
+        string | null
+      >;
+
+    /*
+     * Required columns.
+     *
+     * badge, featured and isActive are
+     * deliberately NOT required.
+     */
+    const requiredFields: (
+      keyof NormalizedProduct
+    )[] = [
+      "name",
+      "category",
+      "unit",
+      "price",
+    ];
+
+    const missingRequiredColumns =
+      requiredFields.filter(
+        (field) =>
+          !mapping[field]
+      );
+
+    /*
+     * We don't fail merely because optional
+     * columns are absent.
+     */
+    if (
+      missingRequiredColumns.length > 0
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            `Required catalog columns could not be detected: ${missingRequiredColumns.join(
+              ", "
+            )}.`,
+          headers,
+          mapping,
+          requiredFields,
+          optionalFields: [
+            "description",
+            "image",
+            "badge",
+            "featured",
+            "isActive",
+          ],
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /*
+     * Normalize every uploaded row.
+     */
     const normalized = rows.map(
       (row, index) => ({
         rowNumber: index + 2,
@@ -479,8 +664,14 @@ export async function POST(
       })
     );
 
+    /*
+     * Validate rows.
+     */
     const validation = normalized.map(
-      ({ rowNumber, product }) => {
+      ({
+        rowNumber,
+        product,
+      }) => {
         const errors: string[] = [];
         const warnings: string[] = [];
 
@@ -502,10 +693,8 @@ export async function POST(
           );
         }
 
-        if (
-          product.price === null
-        ) {
-          warnings.push(
+        if (product.price === null) {
+          errors.push(
             "Price is missing."
           );
         } else if (
@@ -527,6 +716,42 @@ export async function POST(
           );
         }
 
+        /*
+         * Optional fields generate warnings,
+         * not validation errors.
+         */
+        if (
+          !mapping.description
+        ) {
+          warnings.push(
+            "Description column was not detected."
+          );
+        }
+
+        if (!mapping.image) {
+          warnings.push(
+            "Image column was not detected."
+          );
+        }
+
+        if (!mapping.badge) {
+          warnings.push(
+            "Badge column was not detected. Defaulting to no badge."
+          );
+        }
+
+        if (!mapping.featured) {
+          warnings.push(
+            "Featured column was not detected. Defaulting to false."
+          );
+        }
+
+        if (!mapping.isActive) {
+          warnings.push(
+            "Is Active column was not detected. Defaulting to true."
+          );
+        }
+
         return {
           rowNumber,
           product,
@@ -537,6 +762,51 @@ export async function POST(
       }
     );
 
+    /*
+     * Duplicate product-name detection.
+     */
+    const seenNames =
+      new Map<string, number>();
+
+    const duplicates =
+      new Set<number>();
+
+    for (const item of validation) {
+      const key =
+        item.product.name
+          .trim()
+          .toLowerCase();
+
+      if (!key) {
+        continue;
+      }
+
+      if (seenNames.has(key)) {
+        duplicates.add(
+          item.rowNumber
+        );
+
+        const firstRow =
+          seenNames.get(key);
+
+        if (
+          firstRow !== undefined
+        ) {
+          duplicates.add(
+            firstRow
+          );
+        }
+      } else {
+        seenNames.set(
+          key,
+          item.rowNumber
+        );
+      }
+    }
+
+    /*
+     * Summary.
+     */
     const validCount =
       validation.filter(
         (item) => item.valid
@@ -552,61 +822,79 @@ export async function POST(
           item.warnings.length > 0
       ).length;
 
-    const duplicateNames =
-      new Set<string>();
+    /*
+     * Return analysis to the frontend.
+     *
+     * IMPORTANT:
+     * This endpoint only analyzes.
+     * It does NOT write to Prisma/PostgreSQL.
+     */
+    return NextResponse.json(
+      {
+        success: true,
 
-    const duplicates = new Set<
-      number
-    >();
+        file: {
+          name: file.name,
+          size: file.size,
+          type: fileType,
+        },
 
-    for (const item of validation) {
-      const key =
-        item.product.name
-          .trim()
-          .toLowerCase();
+        summary: {
+          rowsDetected: rows.length,
+          valid: validCount,
+          invalid: invalidCount,
+          warnings: warningCount,
+          duplicates: duplicates.size,
+        },
 
-      if (!key) {
-        continue;
-      }
+        headers,
 
-      if (duplicateNames.has(key)) {
-        duplicates.add(
-          item.rowNumber
-        );
-      } else {
-        duplicateNames.add(key);
-      }
-    }
+        mapping,
 
-    return NextResponse.json({
-      success: true,
-      file: {
-        name: file.name,
-        size: file.size,
-        type: fileType,
+        requiredFields,
+
+        optionalFields: [
+          "description",
+          "image",
+          "badge",
+          "featured",
+          "isActive",
+        ],
+
+        defaults: {
+          badge: null,
+          featured: false,
+          isActive: true,
+        },
+
+        preview: validation
+          .slice(0, 100)
+          .map((item) => ({
+            rowNumber:
+              item.rowNumber,
+
+            product:
+              item.product,
+
+            errors:
+              item.errors,
+
+            warnings:
+              item.warnings,
+
+            duplicate:
+              duplicates.has(
+                item.rowNumber
+              ),
+
+            valid:
+              item.valid,
+          })),
       },
-      summary: {
-        rowsDetected: rows.length,
-        valid: validCount,
-        invalid: invalidCount,
-        warnings: warningCount,
-        duplicates: duplicates.size,
-      },
-      headers,
-      mapping,
-      preview: validation
-        .slice(0, 100)
-        .map((item) => ({
-          rowNumber: item.rowNumber,
-          product: item.product,
-          errors: item.errors,
-          warnings: item.warnings,
-          duplicate: duplicates.has(
-            item.rowNumber
-          ),
-          valid: item.valid,
-        })),
-    });
+      {
+        status: 200,
+      }
+    );
   } catch (error) {
     console.error(
       "Catalog analysis error:",
@@ -618,7 +906,9 @@ export async function POST(
         error:
           "Unable to analyze the catalog file.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 type CustomerSegment =
   | "NEW"
@@ -17,12 +17,14 @@ function getCustomerSegment({
   lifetimeSpend: number;
   lastOrderAt: Date | null;
 }): CustomerSegment {
-  const daysSinceLastOrder = lastOrderAt
-    ? Math.floor(
-        (Date.now() - lastOrderAt.getTime()) /
-          (1000 * 60 * 60 * 24)
-      )
-    : null;
+  const daysSinceLastOrder =
+    lastOrderAt
+      ? Math.floor(
+          (Date.now() -
+            lastOrderAt.getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : null;
 
   if (lifetimeSpend >= 250) {
     return "VIP";
@@ -71,7 +73,9 @@ function calculateDiscount({
     discount =
       subtotal * (value / 100);
 
-    if (maximumDiscount !== null) {
+    if (
+      maximumDiscount !== null
+    ) {
       discount = Math.min(
         discount,
         maximumDiscount
@@ -101,12 +105,22 @@ function calculateDiscount({
 export async function POST(
   request: Request
 ) {
+  const prisma = getPrisma();
+
   try {
-    const body = await request.json();
+    const body =
+      (await request.json()) as {
+        code?: unknown;
+        subtotal?: unknown;
+        deliveryFee?: unknown;
+        email?: unknown;
+      };
 
     const code =
       typeof body.code === "string"
-        ? body.code.trim().toUpperCase()
+        ? body.code
+            .trim()
+            .toUpperCase()
         : "";
 
     const subtotal = Number(
@@ -119,7 +133,9 @@ export async function POST(
 
     const email =
       typeof body.email === "string"
-        ? body.email.trim().toLowerCase()
+        ? body.email
+            .trim()
+            .toLowerCase()
         : "";
 
     if (!code) {
@@ -226,14 +242,13 @@ export async function POST(
 
     if (
       promotion.minimumOrder !== null &&
-      subtotal < promotion.minimumOrder
+      subtotal <
+        promotion.minimumOrder
     ) {
       return NextResponse.json(
         {
           error:
-            `This promotion requires a minimum order of $${promotion.minimumOrder.toFixed(
-              2
-            )}.`,
+            `This promotion requires a minimum order of $${promotion.minimumOrder.toFixed(2)}.`,
         },
         { status: 400 }
       );
@@ -274,8 +289,8 @@ export async function POST(
           );
 
         const lastOrderAt =
-          customer.orders[0]?.createdAt ??
-          null;
+          customer.orders[0]
+            ?.createdAt ?? null;
 
         customerSegment =
           getCustomerSegment({
@@ -356,5 +371,7 @@ export async function POST(
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

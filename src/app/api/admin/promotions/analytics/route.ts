@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function GET() {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated = await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
     const [promotions, orders] =
       await Promise.all([
         prisma.promotion.findMany({
@@ -212,5 +215,7 @@ export async function GET() {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

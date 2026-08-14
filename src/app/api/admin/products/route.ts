@@ -1,6 +1,7 @@
 import { requireAdminSession } from "@/lib/admin-auth";
+import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import type { PrismaClient } from "@prisma/client";
 
 type ProductInput = {
   name?: string;
@@ -16,7 +17,10 @@ type ProductInput = {
   featured?: boolean;
 };
 
-async function validateCategory(categoryName: string) {
+async function validateCategory(
+  prisma: PrismaClient,
+  categoryName: string
+) {
   const normalized = categoryName.trim();
 
   if (!normalized) {
@@ -37,21 +41,25 @@ async function validateCategory(categoryName: string) {
 }
 
 export async function GET() {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated = await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
-    const products = await prisma.product.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const products =
+      await prisma.product.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
 
     return NextResponse.json({
       success: true,
@@ -69,20 +77,27 @@ export async function GET() {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request
+) {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated = await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
     const body =
       (await request.json()) as ProductInput;
 
@@ -114,7 +129,10 @@ export async function POST(request: Request) {
     }
 
     const categoryRecord =
-      await validateCategory(category);
+      await validateCategory(
+        prisma,
+        category
+      );
 
     if (!categoryRecord) {
       return NextResponse.json(
@@ -163,21 +181,16 @@ export async function POST(request: Request) {
           name,
           slug,
           description:
-            body.description?.trim() || null,
-
+            body.description?.trim() ||
+            null,
           category:
             categoryRecord.name,
-
           unit,
-
           price: Number(body.price),
-
           image:
             body.image?.trim() || null,
-
           badge:
             body.badge?.trim() || null,
-
           stock:
             body.stock !== undefined
               ? Math.max(
@@ -187,12 +200,10 @@ export async function POST(request: Request) {
                   )
                 )
               : 0,
-
           isActive:
             body.isActive !== undefined
               ? Boolean(body.isActive)
               : true,
-
           featured:
             body.featured !== undefined
               ? Boolean(body.featured)
@@ -220,20 +231,27 @@ export async function POST(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(
+  request: Request
+) {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated = await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
     const body =
       (await request.json()) as ProductInput & {
         id?: string;
@@ -286,6 +304,7 @@ export async function PATCH(request: Request) {
 
       const categoryRecord =
         await validateCategory(
+          prisma,
           category
         );
 
@@ -326,7 +345,6 @@ export async function PATCH(request: Request) {
         where: {
           id: body.id,
         },
-
         data: {
           ...(body.name !== undefined && {
             name: body.name.trim(),
@@ -407,20 +425,27 @@ export async function PATCH(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(
+  request: Request
+) {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated = await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
     const body =
       (await request.json()) as {
         id?: string;
@@ -501,5 +526,7 @@ export async function DELETE(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

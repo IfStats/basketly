@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function GET(request: Request) {
+  const prisma = getPrisma();
+
   try {
     const authenticated = await requireAdminSession();
 
@@ -12,6 +14,7 @@ export async function GET(request: Request) {
         { status: 401 }
       );
     }
+
 
     const { searchParams } = new URL(request.url);
 
@@ -111,22 +114,24 @@ export async function GET(request: Request) {
       success: true,
       products: filteredProducts,
     });
-  } catch (error) {
+   } catch (error) {
     console.error(
       "Admin inventory GET error:",
       error
     );
 
     return NextResponse.json(
-      {
-        error: "Unable to load inventory.",
-      },
+      { error: "Unable to load inventory." },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function PATCH(request: Request) {
+  const prisma = getPrisma();
+
   try {
     const authenticated = await requireAdminSession();
 
@@ -235,11 +240,10 @@ export async function PATCH(request: Request) {
     );
 
     return NextResponse.json(
-      {
-        error:
-          "Unable to update inventory.",
-      },
+      { error: "Unable to update inventory." },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

@@ -1,7 +1,6 @@
 import { requireAdminSession } from "@/lib/admin-auth";
+import { getPrisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-
 
 const orderStatuses = [
   "PENDING",
@@ -28,12 +27,15 @@ const deliveryStatusMap = {
 export async function GET() {
   const authenticated = await requireAdminSession();
 
-if (!authenticated) {
-  return NextResponse.json(
-    { error: "Unauthorized." },
-    { status: 401 }
-  );
-}
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
     const orders = await prisma.order.findMany({
       orderBy: {
@@ -51,7 +53,10 @@ if (!authenticated) {
       orders,
     });
   } catch (error) {
-    console.error("Fetch admin orders error:", error);
+    console.error(
+      "Fetch admin orders error:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -59,20 +64,38 @@ if (!authenticated) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function PATCH(request: Request) {
+  const authenticated = await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
     const body = await request.json();
 
-    const orderId = body.orderId as string;
+    const orderId =
+      typeof body.orderId === "string"
+        ? body.orderId.trim()
+        : "";
+
     const status = body.status as OrderStatus;
 
     if (!orderId || !status) {
       return NextResponse.json(
         {
-          error: "Order ID and status are required.",
+          error:
+            "Order ID and status are required.",
         },
         { status: 400 }
       );
@@ -87,14 +110,15 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const existingOrder = await prisma.order.findUnique({
-      where: {
-        id: orderId,
-      },
-      include: {
-        delivery: true,
-      },
-    });
+    const existingOrder =
+      await prisma.order.findUnique({
+        where: {
+          id: orderId,
+        },
+        include: {
+          delivery: true,
+        },
+      });
 
     if (!existingOrder) {
       return NextResponse.json(
@@ -117,61 +141,76 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const deliveryStatus = deliveryStatusMap[status];
+    const deliveryStatus =
+      deliveryStatusMap[status];
 
-    const order = await prisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: {
-          id: orderId,
-        },
-        data: {
-          status,
-        },
-        include: {
-          customer: true,
-          items: true,
-          delivery: true,
-        },
-      });
+    const order =
+      await prisma.$transaction(
+        async (tx) => {
+          const updatedOrder =
+            await tx.order.update({
+              where: {
+                id: orderId,
+              },
+              data: {
+                status,
+              },
+              include: {
+                customer: true,
+                items: true,
+                delivery: true,
+              },
+            });
 
-      if (existingOrder.delivery) {
-        await tx.delivery.update({
-          where: {
-            orderId,
-          },
-          data: {
-            status: deliveryStatus,
-            ...(status === "DELIVERED"
-              ? {
-                  deliveredAt: new Date(),
-                }
-              : {}),
-            ...(status === "OUT_FOR_DELIVERY"
-              ? {
-                  pickedUpAt:
-                    existingOrder.delivery.pickedUpAt ??
-                    new Date(),
-                }
-              : {}),
-          },
-        });
-      }
+          if (existingOrder.delivery) {
+            await tx.delivery.update({
+              where: {
+                orderId,
+              },
+              data: {
+                status: deliveryStatus,
+                ...(status === "DELIVERED"
+                  ? {
+                      deliveredAt:
+                        new Date(),
+                    }
+                  : {}),
+                ...(status ===
+                "OUT_FOR_DELIVERY"
+                  ? {
+                      pickedUpAt:
+                        existingOrder
+                          .delivery
+                          .pickedUpAt ??
+                        new Date(),
+                    }
+                  : {}),
+              },
+            });
+          }
 
-      return updatedOrder;
-    });
+          return updatedOrder;
+        }
+      );
 
     return NextResponse.json({
       success: true,
       order,
     });
   } catch (error) {
-    console.error("Update order status error:", error);
+    console.error(
+      "Update order status error:",
+      error
+    );
 
     return NextResponse.json(
       {
-        error: "Unable to update order status.",
+        error:
+          "Unable to update order status.",
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

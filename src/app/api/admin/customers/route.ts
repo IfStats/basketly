@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 type CustomerSegment =
@@ -31,7 +31,10 @@ function getCustomerSegment({
     return "VIP";
   }
 
-  if (daysSinceLastOrder !== null && daysSinceLastOrder >= 60) {
+  if (
+    daysSinceLastOrder !== null &&
+    daysSinceLastOrder >= 60
+  ) {
     return "INACTIVE";
   }
 
@@ -50,6 +53,8 @@ function getCustomerSegment({
 }
 
 export async function GET(request: Request) {
+  const prisma = getPrisma();
+
   try {
     const authenticated = await requireAdminSession();
 
@@ -259,5 +264,7 @@ export async function GET(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

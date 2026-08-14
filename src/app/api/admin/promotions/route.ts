@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 const promotionTypes = [
@@ -8,7 +8,8 @@ const promotionTypes = [
   "FREE_DELIVERY",
 ] as const;
 
-type PromotionType = (typeof promotionTypes)[number];
+type PromotionType =
+  (typeof promotionTypes)[number];
 
 function normalizeCode(value: unknown) {
   return typeof value === "string"
@@ -91,7 +92,9 @@ function validatePromotionInput(
   const targetSegment =
     typeof body.targetSegment === "string" &&
     body.targetSegment.trim()
-      ? body.targetSegment.trim().toUpperCase()
+      ? body.targetSegment
+          .trim()
+          .toUpperCase()
       : null;
 
   const startsAt =
@@ -113,28 +116,44 @@ function validatePromotionInput(
   const errors: string[] = [];
 
   if (!name) {
-    errors.push("Promotion name is required.");
+    errors.push(
+      "Promotion name is required."
+    );
   }
 
   if (!code) {
-    errors.push("Promotion code is required.");
+    errors.push(
+      "Promotion code is required."
+    );
   }
 
-  if (!/^[A-Z0-9_-]{3,40}$/.test(code)) {
+  if (
+    !/^[A-Z0-9_-]{3,40}$/.test(code)
+  ) {
     errors.push(
       "Promotion code must be 3-40 characters and contain only letters, numbers, hyphens or underscores."
     );
   }
 
   if (!isPromotionType(type)) {
-    errors.push("A valid promotion type is required.");
+    errors.push(
+      "A valid promotion type is required."
+    );
   }
 
-  if (!Number.isFinite(value) || value < 0) {
-    errors.push("Promotion value must be zero or greater.");
+  if (
+    !Number.isFinite(value) ||
+    value < 0
+  ) {
+    errors.push(
+      "Promotion value must be zero or greater."
+    );
   }
 
-  if (type === "PERCENTAGE" && value > 100) {
+  if (
+    type === "PERCENTAGE" &&
+    value > 100
+  ) {
     errors.push(
       "Percentage discounts cannot exceed 100%."
     );
@@ -167,15 +186,22 @@ function validatePromotionInput(
     );
   }
 
-  if (!startsAt || Number.isNaN(startsAt.getTime())) {
-    errors.push("A valid start date is required.");
+  if (
+    !startsAt ||
+    Number.isNaN(startsAt.getTime())
+  ) {
+    errors.push(
+      "A valid start date is required."
+    );
   }
 
   if (
     endsAt &&
     Number.isNaN(endsAt.getTime())
   ) {
-    errors.push("End date must be valid.");
+    errors.push(
+      "End date must be valid."
+    );
   }
 
   if (
@@ -215,18 +241,22 @@ function validatePromotionInput(
   };
 }
 
-export async function GET(request: Request) {
+export async function GET(
+  request: Request
+) {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated =
-      await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
     const { searchParams } =
       new URL(request.url);
 
@@ -327,29 +357,37 @@ export async function GET(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request
+) {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated =
-      await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
     const body =
-      await request.json();
+      (await request.json()) as Record<
+        string,
+        unknown
+      >;
 
     const {
       errors,
       data,
-    } =
-      validatePromotionInput(body);
+    } = validatePromotionInput(body);
 
     if (errors.length > 0) {
       return NextResponse.json(
@@ -421,23 +459,32 @@ export async function POST(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(
+  request: Request
+) {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated =
-      await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
     const body =
-      await request.json();
+      (await request.json()) as Record<
+        string,
+        unknown
+      >;
 
     const id =
       typeof body.id === "string"
@@ -621,23 +668,31 @@ export async function PATCH(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(
+  request: Request
+) {
+  const authenticated =
+    await requireAdminSession();
+
+  if (!authenticated) {
+    return NextResponse.json(
+      { error: "Unauthorized." },
+      { status: 401 }
+    );
+  }
+
+  const prisma = getPrisma();
+
   try {
-    const authenticated =
-      await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        { error: "Unauthorized." },
-        { status: 401 }
-      );
-    }
-
     const body =
-      await request.json();
+      (await request.json()) as {
+        id?: string;
+      };
 
     const id =
       typeof body.id === "string"
@@ -657,7 +712,9 @@ export async function DELETE(request: Request) {
     const existing =
       await prisma.promotion.findUnique({
         where: { id },
-        select: { id: true },
+        select: {
+          id: true,
+        },
       });
 
     if (!existing) {
@@ -690,5 +747,7 @@ export async function DELETE(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
