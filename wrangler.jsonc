@@ -1,5 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
   "name": "basketly",
   "compatibility_date": "2026-08-14",
   "compatibility_flags": [
@@ -7,5 +8,9 @@
   ],
   "observability": {
     "enabled": true
+  },
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
   }
 }
