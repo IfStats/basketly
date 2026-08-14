@@ -1,4 +1,4 @@
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
@@ -15,7 +15,7 @@ function createPrismaClient(): PrismaClient {
     );
   }
 
-  const adapter = new PrismaPg({
+  const adapter = new PrismaNeon({
     connectionString,
   });
 
@@ -42,9 +42,7 @@ export const prisma = new Proxy(
       const value =
         client[property as keyof PrismaClient];
 
-      if (
-        typeof value === "function"
-      ) {
+      if (typeof value === "function") {
         return value.bind(client);
       }
 

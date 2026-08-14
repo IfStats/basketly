@@ -1,7 +1,7 @@
 import "dotenv/config";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 type CatalogProduct = {
@@ -24,7 +24,7 @@ if (!connectionString) {
   );
 }
 
-const adapter = new PrismaPg({
+const adapter = new PrismaNeon({
   connectionString,
 });
 
