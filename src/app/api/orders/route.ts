@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
+import { formatMoney } from "@/lib/currency";
+import { calculateMarketDeliveryFee } from "@/lib/market-pricing";
 
 type OrderItemInput = {
   productId: string;
-  name: string;
-  price: number;
   quantity: number;
 };
 
@@ -26,11 +26,11 @@ type CreateOrderInput = {
 
   items: OrderItemInput[];
 
-  promotionCode?: string | null;
+  promotionCode?:
+    | string
+    | null;
 
-  subtotal: number;
-  deliveryFee: number;
-  total: number;
+  marketCode?: string;
 };
 
 type PromotionType =
@@ -42,7 +42,9 @@ function normalizePromotionCode(
   value: unknown
 ) {
   return typeof value === "string"
-    ? value.trim().toUpperCase()
+    ? value
+        .trim()
+        .toUpperCase()
     : "";
 }
 
@@ -50,13 +52,11 @@ function calculatePromotionDiscount({
   type,
   value,
   subtotal,
-  deliveryFee,
   maximumDiscount,
 }: {
   type: PromotionType;
   value: number;
   subtotal: number;
-  deliveryFee: number;
   maximumDiscount: number | null;
 }) {
   let discount = 0;
@@ -65,9 +65,7 @@ function calculatePromotionDiscount({
     discount =
       subtotal * (value / 100);
 
-    if (
-      maximumDiscount !== null
-    ) {
+    if (maximumDiscount !== null) {
       discount = Math.min(
         discount,
         maximumDiscount
@@ -83,12 +81,14 @@ function calculatePromotionDiscount({
   }
 
   if (type === "FREE_DELIVERY") {
-    discount = deliveryFee;
+    discount = 0;
   }
 
   return Math.max(
     0,
-    Number(discount.toFixed(2))
+    Number(
+      discount.toFixed(2)
+    )
   );
 }
 
@@ -134,7 +134,8 @@ export async function POST(
     if (!body.items?.length) {
       return NextResponse.json(
         {
-          error: "Your basket is empty.",
+          error:
+            "Your basket is empty.",
         },
         { status: 400 }
       );
@@ -163,6 +164,14 @@ export async function POST(
         body.promotionCode
       );
 
+    const requestedMarketCode =
+      typeof body.marketCode ===
+      "string"
+        ? body.marketCode
+            .trim()
+            .toUpperCase()
+        : "";
+
     const orderNumber =
       `BKT-${Date.now()
         .toString()
@@ -171,6 +180,36 @@ export async function POST(
     const order =
       await prisma.$transaction(
         async (tx) => {
+          const market =
+            requestedMarketCode
+              ? await tx.market.findFirst({
+                  where: {
+                    code:
+                      requestedMarketCode,
+                    isActive: true,
+                  },
+                })
+              : await tx.market.findFirst({
+                  where: {
+                    isActive: true,
+                    isDefault: true,
+                  },
+                });
+
+          if (!market) {
+            throw new Error(
+              "MARKET_NOT_AVAILABLE"
+            );
+          }
+
+          if (
+            !market.deliveryEnabled
+          ) {
+            throw new Error(
+              "MARKET_DELIVERY_UNAVAILABLE"
+            );
+          }
+
           const products =
             await tx.product.findMany({
               where: {
@@ -217,59 +256,71 @@ export async function POST(
           }
 
           const subtotal =
-            body.items.reduce(
-              (sum, item) => {
-                const product =
-                  productMap.get(
-                    item.productId
-                  );
+            Number(
+              body.items
+                .reduce(
+                  (
+                    sum,
+                    item
+                  ) => {
+                    const product =
+                      productMap.get(
+                        item.productId
+                      );
 
-                if (!product) {
-                  throw new Error(
-                    `PRODUCT_NOT_FOUND:${item.productId}`
-                  );
-                }
+                    if (!product) {
+                      throw new Error(
+                        `PRODUCT_NOT_FOUND:${item.productId}`
+                      );
+                    }
 
-                return (
-                  sum +
-                  product.price *
-                    item.quantity
-                );
-              },
-              0
+                    return (
+                      sum +
+                      product.price *
+                        item.quantity
+                    );
+                  },
+                  0
+                )
+                .toFixed(2)
             );
 
           const baseDeliveryFee =
-            subtotal >= 50 ||
-            subtotal === 0
-              ? 0
-              : 4.99;
+            calculateMarketDeliveryFee(
+              subtotal,
+              market
+            );
+
+          const normalizedEmail =
+            body.customer.email
+              .trim()
+              .toLowerCase();
 
           const customer =
             await tx.customer.upsert({
               where: {
                 email:
-                  body.customer.email,
+                  normalizedEmail,
               },
 
               update: {
                 firstName:
-                  body.customer.firstName,
+                  body.customer.firstName.trim(),
                 lastName:
-                  body.customer.lastName,
+                  body.customer.lastName.trim(),
                 phone:
-                  body.customer.phone,
+                  body.customer.phone.trim(),
               },
 
               create: {
                 firstName:
-                  body.customer.firstName,
+                  body.customer.firstName.trim(),
                 lastName:
-                  body.customer.lastName,
+                  body.customer.lastName.trim(),
                 email:
-                  body.customer.email,
+                  normalizedEmail,
                 phone:
-                  body.customer.phone,
+                  body.customer.phone.trim(),
               },
 
               include: {
@@ -284,6 +335,7 @@ export async function POST(
             });
 
           let discount = 0;
+
           let deliveryFee =
             baseDeliveryFee;
 
@@ -291,7 +343,8 @@ export async function POST(
             const promotion =
               await tx.promotion.findUnique({
                 where: {
-                  code: promotionCode,
+                  code:
+                    promotionCode,
                 },
               });
 
@@ -301,7 +354,8 @@ export async function POST(
               );
             }
 
-            const now = new Date();
+            const now =
+              new Date();
 
             if (!promotion.active) {
               throw new Error(
@@ -320,7 +374,8 @@ export async function POST(
 
             if (
               promotion.endsAt &&
-              promotion.endsAt < now
+              promotion.endsAt <
+                now
             ) {
               throw new Error(
                 "PROMOTION_EXPIRED"
@@ -345,7 +400,12 @@ export async function POST(
                 promotion.minimumOrder
             ) {
               throw new Error(
-                `PROMOTION_MINIMUM_ORDER:${promotion.minimumOrder}`
+                [
+                  "PROMOTION_MINIMUM_ORDER",
+                  promotion.minimumOrder,
+                  market.currency,
+                  market.locale,
+                ].join(":")
               );
             }
 
@@ -436,11 +496,11 @@ export async function POST(
 
             discount =
               calculatePromotionDiscount({
-                type: promotion.type,
-                value: promotion.value,
+                type:
+                  promotion.type,
+                value:
+                  promotion.value,
                 subtotal,
-                deliveryFee:
-                  baseDeliveryFee,
                 maximumDiscount:
                   promotion.maximumDiscount,
               });
@@ -455,8 +515,10 @@ export async function POST(
             const updatedPromotion =
               await tx.promotion.updateMany({
                 where: {
-                  id: promotion.id,
+                  id:
+                    promotion.id,
                   active: true,
+
                   OR: [
                     {
                       usageLimit:
@@ -515,7 +577,8 @@ export async function POST(
             const updatedProduct =
               await tx.product.updateMany({
                 where: {
-                  id: product.id,
+                  id:
+                    product.id,
                   isActive: true,
                   stock: {
                     gte:
@@ -544,32 +607,44 @@ export async function POST(
           return tx.order.create({
             data: {
               orderNumber,
+
               customerId:
                 customer.id,
+
+              marketCode:
+                market.code,
+
+              currency:
+                market.currency,
+
               subtotal,
               deliveryFee,
-              total,
-              promotionCode:
-                promotionCode || null,
               discount,
+              total,
+
+              promotionCode:
+                promotionCode ||
+                null,
 
               deliveryAddress:
-                body.delivery.address,
+                body.delivery.address.trim(),
 
               deliveryArea:
-                body.delivery.area,
+                body.delivery.area.trim(),
 
               deliveryCity:
-                body.delivery.city,
+                body.delivery.city.trim(),
 
               deliveryNotes:
-                body.delivery.notes ||
+                body.delivery.notes
+                  ?.trim() ||
                 null,
 
               deliveryTime:
                 body.delivery.time,
 
-              paymentStatus: "COD",
+              paymentStatus:
+                "COD",
 
               items: {
                 create:
@@ -589,10 +664,13 @@ export async function POST(
                       return {
                         productId:
                           product.id,
+
                         name:
                           product.name,
+
                         price:
                           product.price,
+
                         quantity:
                           item.quantity,
                       };
@@ -622,13 +700,43 @@ export async function POST(
         success: true,
         order,
       },
-      { status: 201 }
+      {
+        status: 201,
+      }
     );
   } catch (error) {
     console.error(
       "Create order error:",
       error
     );
+
+    if (
+      error instanceof Error &&
+      error.message ===
+        "MARKET_NOT_AVAILABLE"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "The selected Basketly market is not currently available.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      error instanceof Error &&
+      error.message ===
+        "MARKET_DELIVERY_UNAVAILABLE"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Delivery is not currently available in this market.",
+        },
+        { status: 400 }
+      );
+    }
 
     if (
       error instanceof Error &&
@@ -655,12 +763,16 @@ export async function POST(
         ,
         productName,
         availableStock,
-      ] = error.message.split(":");
+      ] =
+        error.message.split(
+          ":"
+        );
 
       return NextResponse.json(
         {
           error:
-            availableStock === "0"
+            availableStock ===
+            "0"
               ? `${productName} is currently out of stock.`
               : `${productName} only has ${availableStock} available.`,
         },
@@ -744,13 +856,27 @@ export async function POST(
         "PROMOTION_MINIMUM_ORDER:"
       )
     ) {
+      const [
+        ,
+        minimumText,
+        currency = "GHS",
+        locale = "en-GH",
+      ] =
+        error.message.split(
+          ":"
+        );
+
       const minimum =
-        error.message.split(":")[1];
+        Number(minimumText);
 
       return NextResponse.json(
         {
           error:
-            `This promotion requires a minimum order of $${minimum}.`,
+            `This promotion requires a minimum order of ${formatMoney(
+              minimum,
+              currency,
+              locale
+            )}.`,
         },
         { status: 400 }
       );

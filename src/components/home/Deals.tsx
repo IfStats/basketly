@@ -44,7 +44,7 @@ export default function Deals() {
             </div>
 
             <h2 className="text-3xl font-bold tracking-tight text-[#1F2937] sm:text-4xl">
-              Today's deals
+              Today’s deals
             </h2>
 
             <p className="mt-3 max-w-xl text-gray-600">
@@ -114,7 +114,7 @@ export default function Deals() {
             <div>
               <p className="font-bold">Limited-time offers</p>
               <p className="text-sm text-gray-300">
-                Deals can change quickly. Don't miss out.
+                Deals can change quickly. Don’t miss out.
               </p>
             </div>
           </div>

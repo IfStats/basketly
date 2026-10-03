@@ -10,8 +10,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { Product } from "@/types/product";
 import { useCountry } from "@/context/CountryContext";
-import { formatCurrency } from "@/lib/currency";
-import type { CountryCode } from "@/config/countries";
+import { formatMoney } from "@/lib/currency";
+import type { MarketConfig } from "@/context/CountryContext";
 
 type Category = {
   id: string;
@@ -30,7 +30,8 @@ export default function ShopPage({
   
 }) {
 
-  const { country } = useCountry();
+  const { config } =
+  useCountry();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -415,7 +416,7 @@ export default function ShopPage({
                   <ProductCard
   key={product.id}
   product={product}
-  country={country}
+  market={config}
 />
                 )
               )}
@@ -429,10 +430,10 @@ export default function ShopPage({
 
 function ProductCard({
   product,
-  country,
+  market,
 }: {
   product: Product;
-  country: import("@/config/countries").CountryCode;
+  market: MarketConfig;
 }) {
 
   const isOutOfStock =
@@ -507,7 +508,11 @@ function ProductCard({
         <div className="mt-4 flex items-end justify-between gap-3">
           <div>
             <p className="text-lg font-bold text-[#111827] sm:text-xl">
-              {formatCurrency(product.price, country)}
+              {formatMoney(
+  product.price,
+  market.currency,
+  market.locale
+)}
             </p>
 
             <p className="mt-0.5 text-[11px] text-gray-400">

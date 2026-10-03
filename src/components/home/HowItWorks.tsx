@@ -108,7 +108,7 @@ export default function HowItWorks() {
               </div>
 
               <h3 className="mt-5 max-w-2xl text-3xl font-bold sm:text-4xl">
-                Need it today? We've got you covered.
+                Need it today? We’ve got you covered.
               </h3>
 
               <p className="mt-4 max-w-2xl leading-7 text-green-50">

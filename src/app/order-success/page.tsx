@@ -42,19 +42,43 @@ type Order = {
 export default function OrderSuccessPage() {
   const [order, setOrder] = useState<Order | null>(null);
 
+  const [loaded, setLoaded] =
+  useState(false);
+
   useEffect(() => {
+  const timer = window.setTimeout(() => {
     try {
-      const savedOrder = localStorage.getItem(
-        "basketly-last-order"
-      );
+      const savedOrder =
+        localStorage.getItem(
+          "basketly-last-order"
+        );
 
       if (savedOrder) {
-        setOrder(JSON.parse(savedOrder));
+        setOrder(
+          JSON.parse(savedOrder)
+        );
       }
     } catch {
       setOrder(null);
+    } finally {
+      setLoaded(true);
     }
-  }, []);
+  }, 0);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, []);
+
+if (!loaded) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#FFFBEB]">
+      <p className="text-sm font-semibold text-gray-500">
+        Loading order...
+      </p>
+    </main>
+  );
+}
 
   if (!order) {
     return (
@@ -70,7 +94,7 @@ export default function OrderSuccessPage() {
             </h1>
 
             <p className="mt-3 text-gray-600">
-              We couldn't find a recent Basketly order on this device.
+              We couldn’t find a recent Basketly order on this device.
             </p>
 
             <Link
@@ -104,7 +128,7 @@ export default function OrderSuccessPage() {
           </h1>
 
           <p className="mx-auto mt-4 max-w-xl leading-7 text-gray-600">
-            Your Basketly order has been received. We're getting your
+            Your Basketly order has been received. We’re getting your
             items ready for delivery.
           </p>
 

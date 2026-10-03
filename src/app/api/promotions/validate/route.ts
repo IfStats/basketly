@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
+import { formatMoney } from "@/lib/currency";
+import { calculateMarketDeliveryFee } from "@/lib/market-pricing";
 
 type CustomerSegment =
   | "NEW"
@@ -55,7 +57,6 @@ function calculateDiscount({
   type,
   value,
   subtotal,
-  deliveryFee,
   maximumDiscount,
 }: {
   type:
@@ -64,7 +65,6 @@ function calculateDiscount({
     | "FREE_DELIVERY";
   value: number;
   subtotal: number;
-  deliveryFee: number;
   maximumDiscount: number | null;
 }) {
   let discount = 0;
@@ -73,9 +73,7 @@ function calculateDiscount({
     discount =
       subtotal * (value / 100);
 
-    if (
-      maximumDiscount !== null
-    ) {
+    if (maximumDiscount !== null) {
       discount = Math.min(
         discount,
         maximumDiscount
@@ -90,8 +88,11 @@ function calculateDiscount({
     );
   }
 
+  // FREE_DELIVERY is handled by setting
+  // deliveryFee to zero. Do not subtract
+  // it from subtotal a second time.
   if (type === "FREE_DELIVERY") {
-    discount = deliveryFee;
+    discount = 0;
   }
 
   return Number(
@@ -112,7 +113,7 @@ export async function POST(
       (await request.json()) as {
         code?: unknown;
         subtotal?: unknown;
-        deliveryFee?: unknown;
+        marketCode?: unknown;
         email?: unknown;
       };
 
@@ -123,13 +124,16 @@ export async function POST(
             .toUpperCase()
         : "";
 
-    const subtotal = Number(
-      body.subtotal
-    );
+    const subtotal =
+      Number(body.subtotal);
 
-    const deliveryFee = Number(
-      body.deliveryFee
-    );
+    const marketCode =
+      typeof body.marketCode ===
+      "string"
+        ? body.marketCode
+            .trim()
+            .toUpperCase()
+        : "";
 
     const email =
       typeof body.email === "string"
@@ -161,18 +165,45 @@ export async function POST(
       );
     }
 
-    if (
-      !Number.isFinite(deliveryFee) ||
-      deliveryFee < 0
-    ) {
+    const market = marketCode
+      ? await prisma.market.findFirst({
+          where: {
+            code: marketCode,
+            isActive: true,
+          },
+        })
+      : await prisma.market.findFirst({
+          where: {
+            isActive: true,
+            isDefault: true,
+          },
+        });
+
+    if (!market) {
       return NextResponse.json(
         {
           error:
-            "Invalid delivery fee.",
+            "This market is not currently available.",
         },
         { status: 400 }
       );
     }
+
+    if (!market.deliveryEnabled) {
+      return NextResponse.json(
+        {
+          error:
+            "Delivery is not currently available in this market.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const baseDeliveryFee =
+      calculateMarketDeliveryFee(
+        subtotal,
+        market
+      );
 
     const promotion =
       await prisma.promotion.findUnique({
@@ -248,7 +279,11 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            `This promotion requires a minimum order of $${promotion.minimumOrder.toFixed(2)}.`,
+            `This promotion requires a minimum order of ${formatMoney(
+              promotion.minimumOrder,
+              market.currency,
+              market.locale
+            )}.`,
         },
         { status: 400 }
       );
@@ -322,28 +357,35 @@ export async function POST(
         type: promotion.type,
         value: promotion.value,
         subtotal,
-        deliveryFee,
         maximumDiscount:
           promotion.maximumDiscount,
       });
 
-    const newDeliveryFee =
+    const deliveryFee =
       promotion.type ===
       "FREE_DELIVERY"
         ? 0
-        : deliveryFee;
+        : baseDeliveryFee;
 
     const total = Number(
       Math.max(
         0,
         subtotal +
-          newDeliveryFee -
+          deliveryFee -
           discount
       ).toFixed(2)
     );
 
     return NextResponse.json({
       success: true,
+
+      market: {
+        code: market.code,
+        currency:
+          market.currency,
+        locale: market.locale,
+      },
+
       promotion: {
         id: promotion.id,
         name: promotion.name,
@@ -354,8 +396,9 @@ export async function POST(
           promotion.targetSegment,
         customerSegment,
       },
+
       discount,
-      deliveryFee: newDeliveryFee,
+      deliveryFee,
       total,
     });
   } catch (error) {

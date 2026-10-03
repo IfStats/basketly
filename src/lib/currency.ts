@@ -1,17 +1,13 @@
-import type { CountryCode } from "@/config/countries";
-import { countries } from "@/config/countries";
-
-export function formatCurrency(
+export function formatMoney(
   amount: number,
-  country: CountryCode
+  currency: string,
+  locale: string
 ) {
-  const config = countries[country];
-
   return new Intl.NumberFormat(
-    config.locale,
+    locale,
     {
       style: "currency",
-      currency: config.currency,
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }

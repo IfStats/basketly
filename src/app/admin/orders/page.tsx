@@ -95,8 +95,54 @@ export default function AdminOrdersPage() {
   }
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+  let cancelled = false;
+
+  async function initialLoad() {
+    try {
+      const response = await fetch(
+        "/api/admin/orders",
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to load orders."
+        );
+      }
+
+      const data = await response.json();
+
+      if (!cancelled) {
+        setOrders(data.orders || []);
+      }
+    } catch (err) {
+      console.error(
+        "Fetch orders error:",
+        err
+      );
+
+      if (!cancelled) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load orders."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+  }
+
+  void initialLoad();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();

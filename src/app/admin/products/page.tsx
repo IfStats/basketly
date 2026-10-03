@@ -151,11 +151,94 @@ export default function AdminProductsPage() {
   }
 
   useEffect(() => {
-    void Promise.all([
-      fetchProducts(),
-      fetchCategories(),
-    ]);
-  }, []);
+  let cancelled = false;
+
+  async function initialLoad() {
+    try {
+      const [
+        productsResponse,
+        categoriesResponse,
+      ] = await Promise.all([
+        fetch("/api/admin/products", {
+          cache: "no-store",
+        }),
+        fetch("/api/admin/categories", {
+          cache: "no-store",
+        }),
+      ]);
+
+      if (
+        productsResponse.status === 401 ||
+        categoriesResponse.status === 401
+      ) {
+        window.location.href =
+          "/admin/login";
+        return;
+      }
+
+      if (!productsResponse.ok) {
+        throw new Error(
+          "Failed to load products."
+        );
+      }
+
+      if (!categoriesResponse.ok) {
+        throw new Error(
+          "Failed to load categories."
+        );
+      }
+
+      const [
+        productsData,
+        categoriesData,
+      ] = await Promise.all([
+        productsResponse.json(),
+        categoriesResponse.json(),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      setProducts(
+        productsData.products || []
+      );
+
+      setCategories(
+        (
+          categoriesData.categories ?? []
+        ).filter(
+          (item: Category) =>
+            item.isActive
+        )
+      );
+    } catch (err) {
+      console.error(
+        "Initial product load error:",
+        err
+      );
+
+      if (!cancelled) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load catalog."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+        setCategoriesLoading(false);
+      }
+    }
+  }
+
+  void initialLoad();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();

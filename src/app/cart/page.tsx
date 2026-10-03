@@ -38,7 +38,7 @@ export default function CartPage() {
             </h1>
 
             <p className="mx-auto mt-3 max-w-md leading-7 text-gray-600">
-              Looks like you haven't added anything yet. Browse our
+              Looks like you haven’t added anything yet. Browse our
               groceries and everyday essentials to get started.
             </p>
 

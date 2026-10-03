@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   AlertTriangle,
   ArrowDown,
@@ -46,6 +52,7 @@ const statusOptions: {
 ];
 
 export default function InventoryPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -55,56 +62,60 @@ export default function InventoryPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  async function loadInventory() {
-    try {
-      setLoading(true);
-      setError("");
+  const loadInventory = useCallback(async () => {
+  try {
+    setLoading(true);
+    setError("");
 
-      const params = new URLSearchParams();
+    const params = new URLSearchParams();
 
-      if (search.trim()) {
-        params.set("search", search.trim());
-      }
-
-      params.set("status", status);
-
-      const response = await fetch(
-        `/api/admin/inventory?${params.toString()}`,
-        { cache: "no-store" }
-      );
-
-      if (response.status === 401) {
-        window.location.href = "/admin/login";
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error || "Unable to load inventory."
-        );
-      }
-
-      setProducts(data.products ?? []);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load inventory."
-      );
-    } finally {
-      setLoading(false);
+    if (search.trim()) {
+      params.set("search", search.trim());
     }
+
+    params.set("status", status);
+
+    const response = await fetch(
+      `/api/admin/inventory?${params.toString()}`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (response.status === 401) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Unable to load inventory."
+      );
+    }
+
+    setProducts(data.products ?? []);
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Unable to load inventory."
+    );
+  } finally {
+    setLoading(false);
   }
+}, [router, search, status]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadInventory();
-    }, 250);
+  const timer = window.setTimeout(() => {
+    void loadInventory();
+  }, 250);
 
-    return () => window.clearTimeout(timer);
-  }, [search, status]);
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, [loadInventory]);
 
   const metrics = useMemo(() => {
     const healthy = products.filter(
@@ -156,9 +167,9 @@ export default function InventoryPage() {
       const data = await response.json();
 
       if (response.status === 401) {
-        window.location.href = "/admin/login";
-        return;
-      }
+  router.replace("/admin/login");
+  return;
+}
 
       if (!response.ok) {
         throw new Error(
@@ -509,13 +520,6 @@ function InventoryRow({
   onAdjust: (amount: number) => void;
   onSet: (value: number) => void;
 }) {
-  const [draft, setDraft] = useState(
-    String(product.stock)
-  );
-
-  useEffect(() => {
-    setDraft(String(product.stock));
-  }, [product.stock]);
 
   const stockState =
     product.stock <= 0
@@ -582,29 +586,32 @@ function InventoryRow({
           </button>
 
           <input
-            type="number"
-            min="0"
-            step="1"
-            value={draft}
-            disabled={saving}
-            onChange={(event) =>
-              setDraft(event.target.value)
-            }
-            onBlur={() => {
-              const next = Number(draft);
+  key={product.stock}
+  type="number"
+  min="0"
+  step="1"
+  defaultValue={product.stock}
+  disabled={saving}
+  onBlur={(event) => {
+    const next = Number(
+      event.currentTarget.value
+    );
 
-              if (
-                Number.isInteger(next) &&
-                next >= 0 &&
-                next !== product.stock
-              ) {
-                onSet(next);
-              }
-            }}
-            className="w-20 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-sm font-bold outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
-            aria-label={`${product.name} stock`}
-          />
+    if (
+      Number.isInteger(next) &&
+      next >= 0 &&
+      next !== product.stock
+    ) {
+      onSet(next);
+      return;
+    }
 
+    event.currentTarget.value =
+      String(product.stock);
+  }}
+  className="w-20 rounded-xl border border-gray-200 bg-white px-3 py-2 text-center text-sm font-bold outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
+  aria-label={`${product.name} stock`}
+/>
           <button
             type="button"
             onClick={() => onAdjust(1)}

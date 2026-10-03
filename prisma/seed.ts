@@ -16,6 +16,61 @@ const prisma = new PrismaClient({
   adapter,
 });
 
+const markets = [
+  {
+    code: "GH",
+    name: "Ghana",
+    currency: "GHS",
+    locale: "en-GH",
+    callingCode: "+233",
+    flag: "🇬🇭",
+    isActive: true,
+    isDefault: true,
+    deliveryEnabled: true,
+    baseDeliveryFee: 4.99,
+    freeDeliveryThreshold: 50,
+  },
+  {
+    code: "NG",
+    name: "Nigeria",
+    currency: "NGN",
+    locale: "en-NG",
+    callingCode: "+234",
+    flag: "🇳🇬",
+    isActive: false,
+    isDefault: false,
+    deliveryEnabled: false,
+    baseDeliveryFee: 0,
+    freeDeliveryThreshold: null,
+  },
+  {
+    code: "GB",
+    name: "United Kingdom",
+    currency: "GBP",
+    locale: "en-GB",
+    callingCode: "+44",
+    flag: "🇬🇧",
+    isActive: false,
+    isDefault: false,
+    deliveryEnabled: false,
+    baseDeliveryFee: 0,
+    freeDeliveryThreshold: null,
+  },
+  {
+    code: "US",
+    name: "United States",
+    currency: "USD",
+    locale: "en-US",
+    callingCode: "+1",
+    flag: "🇺🇸",
+    isActive: false,
+    isDefault: false,
+    deliveryEnabled: false,
+    baseDeliveryFee: 0,
+    freeDeliveryThreshold: null,
+  },
+];
+
 const products = [
   {
     slug: "fresh-tomatoes",
@@ -108,32 +163,84 @@ const products = [
 ];
 
 async function main() {
-  console.log("Seeding Basketly products...");
+  console.log(
+    "Seeding Basketly markets..."
+  );
+
+  for (const market of markets) {
+    await prisma.market.upsert({
+      where: {
+        code: market.code,
+      },
+
+      update: {
+        name: market.name,
+        currency:
+          market.currency,
+        locale: market.locale,
+        callingCode:
+          market.callingCode,
+        flag: market.flag,
+
+        isActive:
+          market.isActive,
+        isDefault:
+          market.isDefault,
+
+        deliveryEnabled:
+          market.deliveryEnabled,
+
+        baseDeliveryFee:
+          market.baseDeliveryFee,
+
+        freeDeliveryThreshold:
+          market.freeDeliveryThreshold,
+      },
+
+      create: market,
+    });
+  }
+
+  console.log(
+    `Successfully seeded ${markets.length} markets.`
+  );
+
+  console.log(
+    "Seeding Basketly products..."
+  );
 
   for (const product of products) {
     await prisma.product.upsert({
       where: {
         slug: product.slug,
       },
+
       update: {
         name: product.name,
-        category: product.category,
+        category:
+          product.category,
         price: product.price,
         unit: product.unit,
         image: product.image,
-        description: product.description,
-        featured: product.featured,
+        description:
+          product.description,
+        featured:
+          product.featured,
         isActive: true,
       },
+
       create: {
         slug: product.slug,
         name: product.name,
-        category: product.category,
+        category:
+          product.category,
         price: product.price,
         unit: product.unit,
         image: product.image,
-        description: product.description,
-        featured: product.featured,
+        description:
+          product.description,
+        featured:
+          product.featured,
         isActive: true,
         stock: 100,
       },

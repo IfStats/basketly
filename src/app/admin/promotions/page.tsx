@@ -98,6 +98,9 @@ export default function AdminPromotionsPage() {
   const [form, setForm] =
     useState<PromotionForm>(emptyForm);
 
+    const [referenceTime, setReferenceTime] =
+  useState<number | null>(null);
+
   async function loadPromotions() {
     try {
       setLoading(true);
@@ -132,6 +135,7 @@ export default function AdminPromotionsPage() {
       }
 
       setPromotions(data.promotions ?? []);
+      setReferenceTime(Date.now());
     } catch (err) {
       setError(
         err instanceof Error
@@ -420,54 +424,60 @@ export default function AdminPromotionsPage() {
   }
 
   const summary = useMemo(() => {
-    const now = Date.now();
-
-    const active = promotions.filter(
-      (promotion) =>
-        promotion.active &&
-        new Date(
-          promotion.startsAt
-        ).getTime() <= now &&
-        (!promotion.endsAt ||
-          new Date(
-            promotion.endsAt
-          ).getTime() >= now) &&
-        (!promotion.usageLimit ||
-          promotion.usageCount <
-            promotion.usageLimit)
-    ).length;
-
-    const scheduled = promotions.filter(
-      (promotion) =>
-        promotion.active &&
-        new Date(
-          promotion.startsAt
-        ).getTime() > now
-    ).length;
-
-    const expired = promotions.filter(
-      (promotion) =>
-        Boolean(
-          promotion.endsAt &&
-            new Date(
-              promotion.endsAt
-            ).getTime() < now
-        ) ||
-        Boolean(
-          promotion.usageLimit &&
-            promotion.usageCount >=
-              promotion.usageLimit
-        )
-    ).length;
-
+  if (referenceTime === null) {
     return {
       total: promotions.length,
-      active,
-      scheduled,
-      expired,
+      active: 0,
+      scheduled: 0,
+      expired: 0,
     };
-  }, [promotions]);
+  }
 
+  const active = promotions.filter(
+    (promotion) =>
+      promotion.active &&
+      new Date(
+        promotion.startsAt
+      ).getTime() <= referenceTime &&
+      (!promotion.endsAt ||
+        new Date(
+          promotion.endsAt
+        ).getTime() >= referenceTime) &&
+      (!promotion.usageLimit ||
+        promotion.usageCount <
+          promotion.usageLimit)
+  ).length;
+
+  const scheduled = promotions.filter(
+    (promotion) =>
+      promotion.active &&
+      new Date(
+        promotion.startsAt
+      ).getTime() > referenceTime
+  ).length;
+
+  const expired = promotions.filter(
+    (promotion) =>
+      Boolean(
+        promotion.endsAt &&
+          new Date(
+            promotion.endsAt
+          ).getTime() < referenceTime
+      ) ||
+      Boolean(
+        promotion.usageLimit &&
+          promotion.usageCount >=
+            promotion.usageLimit
+      )
+  ).length;
+
+  return {
+    total: promotions.length,
+    active,
+    scheduled,
+    expired,
+  };
+}, [promotions, referenceTime]);
   return (
     <main className="min-h-screen bg-[#F5F7FA]">
       <header className="border-b border-gray-200 bg-white">
@@ -705,12 +715,13 @@ export default function AdminPromotionsPage() {
             <div className="divide-y divide-gray-100">
               {promotions.map((promotion) => (
                 <PromotionRow
-                  key={promotion.id}
-                  promotion={promotion}
-                  onEdit={openEdit}
-                  onToggle={togglePromotion}
-                  onDelete={deletePromotion}
-                />
+  key={promotion.id}
+  promotion={promotion}
+  now={referenceTime}
+  onEdit={openEdit}
+  onToggle={togglePromotion}
+  onDelete={deletePromotion}
+/>
               ))}
             </div>
           )}
@@ -1000,29 +1011,31 @@ function SummaryCard({
 
 function PromotionRow({
   promotion,
+  now,
   onEdit,
   onToggle,
   onDelete,
 }: {
   promotion: Promotion;
+  now: number | null;
   onEdit: (promotion: Promotion) => void;
   onToggle: (promotion: Promotion) => void;
   onDelete: (promotion: Promotion) => void;
 }) {
-  const now = Date.now();
+  const referenceTime = now ?? 0;
 
   const isScheduled =
     promotion.active &&
     new Date(
       promotion.startsAt
-    ).getTime() > now;
+    ).getTime() > referenceTime;
 
   const isExpired =
     Boolean(
       promotion.endsAt &&
         new Date(
           promotion.endsAt
-        ).getTime() < now
+        ).getTime() < referenceTime
     ) ||
     Boolean(
       promotion.usageLimit &&

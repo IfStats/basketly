@@ -9,9 +9,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
-import {
-  countries,
-  type CountryCode,
+import type {
+  CountryCode,
 } from "@/config/countries";
 import { useCountry } from "@/context/CountryContext";
 
@@ -20,8 +19,11 @@ export default function Navbar() {
     useState(false);
 
   const { itemCount } = useCart();
-  const { country, setCountry } =
-    useCountry();
+  const {
+  country,
+  markets,
+  setCountry,
+} = useCountry();
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur">
@@ -91,9 +93,7 @@ export default function Navbar() {
               }
               className="appearance-none rounded-full border border-gray-200 bg-gray-50 py-2.5 pl-3 pr-8 text-xs font-bold text-gray-700 outline-none transition hover:border-gray-300 focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
             >
-              {Object.values(
-                countries
-              ).map((item) => (
+              {markets.map((item) => (
                 <option
                   key={item.code}
                   value={item.code}
@@ -194,17 +194,15 @@ export default function Navbar() {
               }
               className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
             >
-              {Object.values(
-                countries
-              ).map((item) => (
-                <option
-                  key={item.code}
-                  value={item.code}
-                >
-                  {item.flag} {item.name} ·{" "}
-                  {item.currency}
-                </option>
-              ))}
+              {markets.map((item) => (
+  <option
+    key={item.code}
+    value={item.code}
+  >
+    {item.flag} {item.name} ·{" "}
+    {item.currency}
+  </option>
+))}
             </select>
           </div>
 

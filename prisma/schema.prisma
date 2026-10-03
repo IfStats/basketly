@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
 
@@ -49,6 +49,8 @@ model Order {
   customerId      String
   status          OrderStatus   @default(PENDING)
   paymentStatus   PaymentStatus @default(COD)
+  marketCode      String        @default("GH")
+  currency        String        @default("GHS")
   subtotal        Float
   deliveryFee     Float
   total           Float
@@ -139,6 +141,29 @@ model Category {
 
   @@index([isActive])
   @@index([sortOrder])
+}
+
+model Market {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  currency    String
+  locale      String
+  callingCode String?
+  flag        String?
+
+  isActive  Boolean @default(false)
+  isDefault Boolean @default(false)
+
+  deliveryEnabled       Boolean @default(false)
+  baseDeliveryFee       Float   @default(0)
+  freeDeliveryThreshold Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([isDefault])
 }
 
 enum OrderStatus {

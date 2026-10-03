@@ -143,8 +143,60 @@ export default function AdminDashboardPage() {
   }
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+  let cancelled = false;
+
+  async function initialLoad() {
+    try {
+      const response = await fetch(
+        "/api/admin/orders",
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (response.status === 401) {
+        window.location.href =
+          "/admin/login";
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to load dashboard data."
+        );
+      }
+
+      const data = await response.json();
+
+      if (!cancelled) {
+        setOrders(data.orders ?? []);
+      }
+    } catch (err) {
+      console.error(
+        "Dashboard error:",
+        err
+      );
+
+      if (!cancelled) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load dashboard data."
+        );
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+  }
+
+  void initialLoad();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   async function logout() {
     if (loggingOut) return;

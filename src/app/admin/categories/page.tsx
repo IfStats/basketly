@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -54,6 +56,8 @@ function slugify(value: string) {
 }
 
 export default function AdminCategoriesPage() {
+
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>(
     []
   );
@@ -71,10 +75,47 @@ export default function AdminCategoriesPage() {
     useState<CategoryForm>(emptyForm);
 
   async function loadCategories() {
-    try {
-      setLoading(true);
-      setError("");
+  try {
+    setLoading(true);
+    setError("");
 
+    const response = await fetch(
+      "/api/admin/categories",
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (response.status === 401) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Unable to load categories."
+      );
+    }
+
+    setCategories(data.categories ?? []);
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Unable to load categories."
+    );
+  } finally {
+    setLoading(false);
+  }
+}
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function initialLoad() {
+    try {
       const response = await fetch(
         "/api/admin/categories",
         {
@@ -83,7 +124,7 @@ export default function AdminCategoriesPage() {
       );
 
       if (response.status === 401) {
-        window.location.href = "/admin/login";
+        router.replace("/admin/login");
         return;
       }
 
@@ -95,21 +136,30 @@ export default function AdminCategoriesPage() {
         );
       }
 
-      setCategories(data.categories ?? []);
+      if (!cancelled) {
+        setCategories(data.categories ?? []);
+      }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load categories."
-      );
+      if (!cancelled) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load categories."
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!cancelled) {
+        setLoading(false);
+      }
     }
   }
 
-  useEffect(() => {
-    loadCategories();
-  }, []);
+  void initialLoad();
+
+  return () => {
+    cancelled = true;
+  };
+}, [router]);
 
   const filteredCategories = categories.filter(
     (category) => {

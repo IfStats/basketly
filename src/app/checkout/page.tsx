@@ -14,6 +14,10 @@ import {
 import { useState } from "react";
 import { useCart } from "@/context/CartContext";
 
+import { useCountry } from "@/context/CountryContext";
+import { formatMoney } from "@/lib/currency";
+import { calculateMarketDeliveryFee } from "@/lib/market-pricing";
+
 type PromotionPreview = {
   code: string;
   type: "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_DELIVERY";
@@ -25,6 +29,9 @@ type PromotionPreview = {
 
 export default function CheckoutPage() {
   const router = useRouter();
+
+  const { config } =
+  useCountry();
 
   const {
     items,
@@ -45,7 +52,10 @@ export default function CheckoutPage() {
     useState(false);
 
   const baseDeliveryFee =
-    subtotal >= 50 || subtotal === 0 ? 0 : 4.99;
+  calculateMarketDeliveryFee(
+    subtotal,
+    config
+  );
 
   const deliveryFee =
     promotion?.deliveryFee ?? baseDeliveryFee;
@@ -76,10 +86,11 @@ export default function CheckoutPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            code,
-            subtotal,
-            email: "",
-          }),
+  code,
+  subtotal,
+  email: "",
+  marketCode: config.code,
+}),
         }
       );
 
@@ -175,9 +186,7 @@ export default function CheckoutPage() {
 
         promotionCode: promotion?.code || null,
 
-        subtotal,
-        deliveryFee: baseDeliveryFee,
-        total: subtotal + baseDeliveryFee,
+        marketCode: config.code,
       };
 
       const response = await fetch("/api/orders", {
@@ -277,7 +286,7 @@ export default function CheckoutPage() {
               </h2>
 
               <p className="mt-1 text-sm text-gray-500">
-                We'll use these details to contact you about your order.
+                We’ll use these details to contact you about your order.
               </p>
 
               <div className="mt-6 grid gap-5 sm:grid-cols-2">
@@ -388,7 +397,7 @@ export default function CheckoutPage() {
                   </h2>
 
                   <p className="text-sm text-gray-500">
-                    Choose when you'd like your order delivered.
+                    Choose when you’d like your order delivered.
                   </p>
                 </div>
               </div>
@@ -433,16 +442,22 @@ export default function CheckoutPage() {
                     </p>
 
                     <p className="text-xs text-gray-400">
-                      {item.quantity} × $
-                      {item.price.toFixed(2)}
+                      {item.quantity} ×{" "}
+{formatMoney(
+  item.price,
+  config.currency,
+  config.locale
+)}
                     </p>
                   </div>
 
                   <span className="shrink-0 text-sm font-semibold text-gray-900">
-                    $
-                    {(
-                      item.price * item.quantity
-                    ).toFixed(2)}
+                    {formatMoney(
+  item.price *
+    item.quantity,
+  config.currency,
+  config.locale
+)}
                   </span>
                 </div>
               ))}
@@ -532,7 +547,11 @@ export default function CheckoutPage() {
                 </span>
 
                 <span className="font-semibold">
-                  ${subtotal.toFixed(2)}
+                  {formatMoney(
+  subtotal,
+  config.currency,
+  config.locale
+)}
                 </span>
               </div>
 
@@ -543,7 +562,12 @@ export default function CheckoutPage() {
                   </span>
 
                   <span className="font-semibold text-[#16A34A]">
-                    -${discount.toFixed(2)}
+                    -
+{formatMoney(
+  discount,
+  config.currency,
+  config.locale
+)}
                   </span>
                 </div>
               )}
@@ -555,8 +579,12 @@ export default function CheckoutPage() {
 
                 <span className="font-semibold">
                   {deliveryFee === 0
-                    ? "FREE"
-                    : `$${deliveryFee.toFixed(2)}`}
+  ? "FREE"
+  : formatMoney(
+      deliveryFee,
+      config.currency,
+      config.locale
+    )}
                 </span>
               </div>
 
@@ -568,7 +596,11 @@ export default function CheckoutPage() {
                 </span>
 
                 <span className="text-2xl font-bold text-[#16A34A]">
-                  ${total.toFixed(2)}
+                  {formatMoney(
+  total,
+  config.currency,
+  config.locale
+)}
                 </span>
               </div>
             </div>
