@@ -200,16 +200,84 @@ export default function CheckoutPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error || "Unable to place your order."
-        );
-      }
+  throw new Error(
+    data.error || "Unable to place your order."
+  );
+}
 
-      clearCart();
+const savedOrder = {
+  orderNumber:
+    data.order.orderNumber,
 
-      router.push(
-        `/order-success?order=${data.order.orderNumber}`
-      );
+  marketCode:
+    data.order.marketCode ??
+    config.code,
+
+  currency:
+    data.order.currency ??
+    config.currency,
+
+  locale:
+    config.locale,
+
+  customer: {
+    firstName:
+      data.order.customer.firstName,
+    lastName:
+      data.order.customer.lastName,
+    email:
+      data.order.customer.email,
+    phone:
+      data.order.customer.phone,
+  },
+
+  delivery: {
+    address:
+      data.order.deliveryAddress,
+    area:
+      data.order.deliveryArea,
+    city:
+      data.order.deliveryCity,
+    notes:
+      data.order.deliveryNotes ??
+      "",
+    time:
+      data.order.deliveryTime,
+  },
+
+  items:
+    data.order.items,
+
+  subtotal:
+    data.order.subtotal,
+
+  deliveryFee:
+    data.order.deliveryFee,
+
+  discount:
+    data.order.discount ?? 0,
+
+  promotionCode:
+    data.order.promotionCode ??
+    null,
+
+  total:
+    data.order.total,
+
+  createdAt:
+    data.order.createdAt,
+};
+
+window.localStorage.setItem(
+  "basketly-last-order",
+  JSON.stringify(savedOrder)
+);
+
+clearCart();
+
+router.push(
+  `/order-success?order=${data.order.orderNumber}`
+);
     } catch (err) {
       console.error("Checkout error:", err);
 

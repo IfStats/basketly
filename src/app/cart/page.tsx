@@ -8,9 +8,15 @@ import {
   ShoppingBag,
   Trash2,
 } from "lucide-react";
+
 import { useCart } from "@/context/CartContext";
+import { useCountry } from "@/context/CountryContext";
+import { formatMoney } from "@/lib/currency";
+import { calculateMarketDeliveryFee } from "@/lib/market-pricing";
 
 export default function CartPage() {
+  const { config } = useCountry();
+
   const {
     items,
     itemCount,
@@ -20,9 +26,25 @@ export default function CartPage() {
   } = useCart();
 
   const deliveryFee =
-    subtotal >= 50 || subtotal === 0 ? 0 : 4.99;
+    calculateMarketDeliveryFee(
+      subtotal,
+      config
+    );
 
-  const total = subtotal + deliveryFee;
+  const total =
+    subtotal + deliveryFee;
+
+  const freeDeliveryThreshold =
+    config.freeDeliveryThreshold;
+
+  const amountUntilFreeDelivery =
+    freeDeliveryThreshold !== null
+      ? Math.max(
+          0,
+          freeDeliveryThreshold -
+            subtotal
+        )
+      : 0;
 
   if (items.length === 0) {
     return (
@@ -38,8 +60,10 @@ export default function CartPage() {
             </h1>
 
             <p className="mx-auto mt-3 max-w-md leading-7 text-gray-600">
-              Looks like you haven’t added anything yet. Browse our
-              groceries and everyday essentials to get started.
+              Looks like you haven’t added
+              anything yet. Browse our
+              groceries and everyday
+              essentials to get started.
             </p>
 
             <Link
@@ -57,7 +81,6 @@ export default function CartPage() {
 
   return (
     <main className="min-h-screen bg-[#FFFBEB]">
-      {/* Header */}
       <section className="border-b bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#F97316]">
@@ -69,27 +92,29 @@ export default function CartPage() {
           </h1>
 
           <p className="mt-3 text-gray-600">
-            {itemCount} {itemCount === 1 ? "item" : "items"} in your basket
+            {itemCount}{" "}
+            {itemCount === 1
+              ? "item"
+              : "items"}{" "}
+            in your basket
           </p>
         </div>
       </section>
 
-      {/* Cart Content */}
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
-          {/* Cart Items */}
           <div className="space-y-4">
             {items.map((item) => (
               <div
                 key={item.id}
                 className="flex flex-col gap-5 rounded-3xl bg-white p-5 shadow-sm sm:flex-row sm:items-center"
               >
-                {/* Product Image */}
                 <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-5xl">
-                  {getProductEmoji(item.category)}
+                  {getProductEmoji(
+                    item.category
+                  )}
                 </div>
 
-                {/* Product Details */}
                 <div className="flex-1">
                   <p className="text-xs text-gray-400">
                     {item.category}
@@ -107,11 +132,14 @@ export default function CartPage() {
                   </p>
 
                   <p className="mt-2 font-bold text-[#16A34A]">
-                    ${item.price.toFixed(2)}
+                    {formatMoney(
+                      item.price,
+                      config.currency,
+                      config.locale
+                    )}
                   </p>
                 </div>
 
-                {/* Quantity & Remove */}
                 <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end">
                   <div className="flex items-center rounded-full border border-gray-200 bg-white">
                     <button
@@ -119,17 +147,22 @@ export default function CartPage() {
                       onClick={() =>
                         updateQuantity(
                           item.id,
-                          item.quantity - 1
+                          item.quantity -
+                            1
                         )
                       }
                       className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100"
                       aria-label={`Decrease ${item.name}`}
                     >
-                      <Minus size={15} />
+                      <Minus
+                        size={15}
+                      />
                     </button>
 
                     <span className="w-9 text-center text-sm font-bold text-[#1F2937]">
-                      {item.quantity}
+                      {
+                        item.quantity
+                      }
                     </span>
 
                     <button
@@ -137,35 +170,43 @@ export default function CartPage() {
                       onClick={() =>
                         updateQuantity(
                           item.id,
-                          item.quantity + 1
+                          item.quantity +
+                            1
                         )
                       }
                       className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100"
                       aria-label={`Increase ${item.name}`}
                     >
-                      <Plus size={15} />
+                      <Plus
+                        size={15}
+                      />
                     </button>
                   </div>
 
                   <button
                     type="button"
                     onClick={() =>
-                      removeFromCart(item.id)
+                      removeFromCart(
+                        item.id
+                      )
                     }
                     className="inline-flex items-center gap-2 text-sm text-red-500 transition hover:text-red-600"
                   >
-                    <Trash2 size={16} />
+                    <Trash2
+                      size={16}
+                    />
                     Remove
                   </button>
                 </div>
 
-                {/* Item Total */}
-                <div className="text-right sm:w-24">
+                <div className="text-right sm:w-28">
                   <p className="text-lg font-bold text-[#1F2937]">
-                    $
-                    {(
-                      item.price * item.quantity
-                    ).toFixed(2)}
+                    {formatMoney(
+                      item.price *
+                        item.quantity,
+                      config.currency,
+                      config.locale
+                    )}
                   </p>
                 </div>
               </div>
@@ -179,7 +220,6 @@ export default function CartPage() {
             </Link>
           </div>
 
-          {/* Order Summary */}
           <aside className="h-fit rounded-3xl bg-white p-6 shadow-sm lg:sticky lg:top-6">
             <h2 className="text-xl font-bold text-[#1F2937]">
               Order summary
@@ -192,7 +232,11 @@ export default function CartPage() {
                 </span>
 
                 <span className="font-semibold text-gray-900">
-                  ${subtotal.toFixed(2)}
+                  {formatMoney(
+                    subtotal,
+                    config.currency,
+                    config.locale
+                  )}
                 </span>
               </div>
 
@@ -204,15 +248,37 @@ export default function CartPage() {
                 <span className="font-semibold text-gray-900">
                   {deliveryFee === 0
                     ? "FREE"
-                    : `$${deliveryFee.toFixed(2)}`}
+                    : formatMoney(
+                        deliveryFee,
+                        config.currency,
+                        config.locale
+                      )}
                 </span>
               </div>
 
-              {subtotal > 0 && subtotal < 50 && (
-                <div className="rounded-2xl bg-yellow-50 p-4 text-sm leading-6 text-yellow-800">
-                  Add $
-                  {(50 - subtotal).toFixed(2)} more to
-                  qualify for free delivery.
+              {config.deliveryEnabled &&
+                freeDeliveryThreshold !==
+                  null &&
+                subtotal > 0 &&
+                subtotal <
+                  freeDeliveryThreshold && (
+                  <div className="rounded-2xl bg-yellow-50 p-4 text-sm leading-6 text-yellow-800">
+                    Add{" "}
+                    {formatMoney(
+                      amountUntilFreeDelivery,
+                      config.currency,
+                      config.locale
+                    )}{" "}
+                    more to qualify for
+                    free delivery.
+                  </div>
+                )}
+
+              {!config.deliveryEnabled && (
+                <div className="rounded-2xl bg-red-50 p-4 text-sm leading-6 text-red-700">
+                  Delivery is currently
+                  unavailable in this
+                  market.
                 </div>
               )}
 
@@ -224,22 +290,36 @@ export default function CartPage() {
                 </span>
 
                 <span className="text-xl font-bold text-[#16A34A]">
-                  ${total.toFixed(2)}
+                  {formatMoney(
+                    total,
+                    config.currency,
+                    config.locale
+                  )}
                 </span>
               </div>
             </div>
 
             <Link
               href="/checkout"
-              className="mt-7 flex w-full items-center justify-center gap-2 rounded-full bg-[#16A34A] px-6 py-4 font-bold text-white transition hover:bg-[#15803D]"
+              className={`mt-7 flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 font-bold transition ${
+                config.deliveryEnabled
+                  ? "bg-[#16A34A] text-white hover:bg-[#15803D]"
+                  : "pointer-events-none cursor-not-allowed bg-gray-200 text-gray-400"
+              }`}
+              aria-disabled={
+                !config.deliveryEnabled
+              }
             >
               Proceed to Checkout
-              <ArrowRight size={18} />
+              <ArrowRight
+                size={18}
+              />
             </Link>
 
             <p className="mt-4 text-center text-xs leading-5 text-gray-400">
-              Delivery options and final charges will be confirmed
-              at checkout.
+              Delivery pricing is
+              calculated using the active
+              Basketly market settings.
             </p>
           </aside>
         </div>
@@ -248,7 +328,9 @@ export default function CartPage() {
   );
 }
 
-function getProductEmoji(category: string) {
+function getProductEmoji(
+  category: string
+) {
   switch (category) {
     case "Fresh Produce":
       return "🥬";
