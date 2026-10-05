@@ -3,15 +3,24 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  Check,
   Search,
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import type { Product } from "@/types/product";
-import { useCountry } from "@/context/CountryContext";
+import {
+  useCountry,
+  type MarketConfig,
+} from "@/context/CountryContext";
+import { useCart } from "@/context/CartContext";
 import { formatMoney } from "@/lib/currency";
-import type { MarketConfig } from "@/context/CountryContext";
 
 type Category = {
   id: string;
@@ -26,26 +35,35 @@ export default function ShopPage({
   initialCategory = "",
 }: {
   initialCategory?: string;
-   
-  
 }) {
+  const { config } = useCountry();
 
-  const { config } =
-  useCountry();
+  const [products, setProducts] =
+    useState<Product[]>([]);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] =
+    useState<Category[]>([]);
 
-  const [search, setSearch] = useState("");
- const [category, setCategory] =
-  useState(initialCategory);
+  const [search, setSearch] =
+    useState("");
 
-  const [sort, setSort] = useState("featured");
-  const [loading, setLoading] = useState(true);
-  const [mobileFilters, setMobileFilters] =
-    useState(false);
+  const [category, setCategory] =
+    useState(initialCategory);
+
+  const [sort, setSort] =
+    useState("featured");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [
+    mobileFilters,
+    setMobileFilters,
+  ] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadShopData() {
       try {
         setLoading(true);
@@ -57,6 +75,7 @@ export default function ShopPage({
           fetch("/api/products", {
             cache: "no-store",
           }),
+
           fetch("/api/categories", {
             cache: "no-store",
           }),
@@ -80,12 +99,17 @@ export default function ShopPage({
         const categoriesData =
           await categoriesResponse.json();
 
+        if (cancelled) {
+          return;
+        }
+
         setProducts(
           productsData.products ?? []
         );
 
         setCategories(
-          categoriesData.categories ?? []
+          categoriesData.categories ??
+            []
         );
       } catch (error) {
         console.error(
@@ -93,79 +117,94 @@ export default function ShopPage({
           error
         );
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
-    loadShopData();
+    void loadShopData();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const filteredProducts = useMemo(() => {
-    let result = [...products];
+  const filteredProducts =
+    useMemo(() => {
+      let result = [...products];
 
-    const query =
-      search.trim().toLowerCase();
+      const query =
+        search
+          .trim()
+          .toLowerCase();
 
-    if (query) {
-      result = result.filter((product) =>
-        [
-          product.name,
-          product.category,
-          product.description ?? "",
-          product.badge ?? "",
-        ].some((value) =>
-          value
-            .toLowerCase()
-            .includes(query)
-        )
-      );
-    }
-
-    if (category) {
-      result = result.filter(
-        (product) =>
-          product.category === category
-      );
-    }
-
-    switch (sort) {
-      case "price-low":
-        result.sort(
-          (a, b) => a.price - b.price
+      if (query) {
+        result = result.filter(
+          (product) =>
+            [
+              product.name,
+              product.category,
+              product.description ??
+                "",
+              product.badge ?? "",
+            ].some((value) =>
+              value
+                .toLowerCase()
+                .includes(query)
+            )
         );
-        break;
+      }
 
-      case "price-high":
-        result.sort(
-          (a, b) => b.price - a.price
+      if (category) {
+        result = result.filter(
+          (product) =>
+            product.category ===
+            category
         );
-        break;
+      }
 
-      case "newest":
-        result.sort((a, b) =>
-          b.id.localeCompare(a.id)
-        );
-        break;
+      switch (sort) {
+        case "price-low":
+          result.sort(
+            (a, b) =>
+              a.price - b.price
+          );
+          break;
 
-      default:
-        result.sort(
-          (a, b) =>
-            Number(b.featured) -
-            Number(a.featured)
-        );
-    }
+        case "price-high":
+          result.sort(
+            (a, b) =>
+              b.price - a.price
+          );
+          break;
 
-    return result;
-  }, [
-    products,
-    search,
-    category,
-    sort,
-  ]);
+        case "newest":
+          result.sort((a, b) =>
+            b.id.localeCompare(a.id)
+          );
+          break;
+
+        case "featured":
+        default:
+          result.sort(
+            (a, b) =>
+              Number(b.featured) -
+              Number(a.featured)
+          );
+          break;
+      }
+
+      return result;
+    }, [
+      products,
+      search,
+      category,
+      sort,
+    ]);
 
   return (
     <main className="min-h-screen bg-[#F7F8F6]">
-      {/* Shop Header */}
       <section className="border-b border-gray-200 bg-white">
         <div className="mx-auto max-w-[1440px] px-5 pb-8 pt-10 sm:px-8 lg:px-12 lg:pb-10">
           <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
@@ -183,10 +222,11 @@ export default function ShopPage({
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500 sm:text-base">
-                Browse the essentials you need,
-                discover new favorites, and build
-                your basket without the grocery-store
-                trip.
+                Browse the essentials
+                you need, discover new
+                favorites, and build
+                your basket without the
+                grocery-store trip.
               </p>
             </div>
 
@@ -199,7 +239,6 @@ export default function ShopPage({
             </Link>
           </div>
 
-          {/* Search */}
           <div className="mt-8 rounded-[1.5rem] border border-gray-200 bg-[#F7F8F6] p-2 sm:p-3">
             <div className="relative">
               <Search
@@ -211,7 +250,9 @@ export default function ShopPage({
                 type="search"
                 value={search}
                 onChange={(event) =>
-                  setSearch(event.target.value)
+                  setSearch(
+                    event.target.value
+                  )
                 }
                 placeholder="Search groceries, drinks, household essentials..."
                 className="h-12 w-full rounded-[1rem] border border-transparent bg-white pl-12 pr-12 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-green-200 focus:ring-4 focus:ring-green-100"
@@ -220,7 +261,9 @@ export default function ShopPage({
               {search && (
                 <button
                   type="button"
-                  onClick={() => setSearch("")}
+                  onClick={() =>
+                    setSearch("")
+                  }
                   className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                   aria-label="Clear search"
                 >
@@ -230,11 +273,12 @@ export default function ShopPage({
             </div>
           </div>
 
-          {/* Desktop category chips */}
           <div className="mt-5 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
               type="button"
-              onClick={() => setCategory("")}
+              onClick={() =>
+                setCategory("")
+              }
               className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-semibold transition ${
                 category === ""
                   ? "border-[#16A34A] bg-[#16A34A] text-white shadow-sm"
@@ -244,47 +288,52 @@ export default function ShopPage({
               All
             </button>
 
-            {categories.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() =>
-                  setCategory(item.name)
-                }
-                className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-semibold transition ${
-                  category === item.name
-                    ? "border-[#16A34A] bg-[#16A34A] text-white shadow-sm"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900"
-                }`}
-              >
-                {item.name}
-              </button>
-            ))}
+            {categories.map(
+              (item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    setCategory(
+                      item.name
+                    )
+                  }
+                  className={`shrink-0 rounded-full border px-4 py-2.5 text-sm font-semibold transition ${
+                    category ===
+                    item.name
+                      ? "border-[#16A34A] bg-[#16A34A] text-white shadow-sm"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900"
+                  }`}
+                >
+                  {item.name}
+                </button>
+              )
+            )}
           </div>
         </div>
       </section>
 
-      {/* Product workspace */}
       <section className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
         <div className="flex flex-col gap-4 border-b border-gray-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-gray-500">
-              <span className="font-bold text-gray-900">
-                {filteredProducts.length}
-              </span>{" "}
-              products
-              {category
-                ? ` in ${category}`
-                : ""}
-            </p>
-          </div>
+          <p className="text-sm text-gray-500">
+            <span className="font-bold text-gray-900">
+              {
+                filteredProducts.length
+              }
+            </span>{" "}
+            products
+            {category
+              ? ` in ${category}`
+              : ""}
+          </p>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() =>
                 setMobileFilters(
-                  (value) => !value
+                  (value) =>
+                    !value
                 )
               }
               className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 lg:hidden"
@@ -323,7 +372,6 @@ export default function ShopPage({
           </div>
         </div>
 
-        {/* Mobile filters */}
         {mobileFilters && (
           <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 lg:hidden">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">
@@ -357,6 +405,7 @@ export default function ShopPage({
                       setCategory(
                         item.name
                       );
+
                       setMobileFilters(
                         false
                       );
@@ -376,7 +425,6 @@ export default function ShopPage({
           </div>
         )}
 
-        {/* Product grid */}
         <div className="mt-8">
           {loading ? (
             <ProductSkeletonGrid />
@@ -393,7 +441,7 @@ export default function ShopPage({
               </h2>
 
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-gray-500">
-                Try another search term,
+                Try another search term
                 or browse a different
                 category.
               </p>
@@ -414,10 +462,16 @@ export default function ShopPage({
               {filteredProducts.map(
                 (product) => (
                   <ProductCard
-  key={product.id}
-  product={product}
-  market={config}
-/>
+                    key={
+                      product.id
+                    }
+                    product={
+                      product
+                    }
+                    market={
+                      config
+                    }
+                  />
                 )
               )}
             </div>
@@ -435,6 +489,13 @@ function ProductCard({
   product: Product;
   market: MarketConfig;
 }) {
+  const {
+    addToCart,
+    items,
+  } = useCart();
+
+  const [added, setAdded] =
+    useState(false);
 
   const isOutOfStock =
     product.stock <= 0;
@@ -443,120 +504,184 @@ function ProductCard({
     product.stock > 0 &&
     product.stock <= 5;
 
+  const existingQuantity =
+    items.find(
+      (item) =>
+        item.id === product.id
+    )?.quantity ?? 0;
+
+  const stockLimitReached =
+    isOutOfStock ||
+    existingQuantity >=
+      product.stock;
+
+  function handleQuickAdd() {
+    if (stockLimitReached) {
+      return;
+    }
+
+    addToCart(product, 1);
+
+    setAdded(true);
+
+    window.setTimeout(() => {
+      setAdded(false);
+    }, 1200);
+  }
+
   return (
-    <Link
-      href={`/products/${product.id}`}
-      className="group overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-xl"
-    >
-      <div className="relative aspect-square overflow-hidden bg-[#F3F4F1]">
-        {product.image ? (
-          <img
-            src={product.image}
-            alt={product.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-5 text-center">
-            <span className="text-sm font-semibold text-gray-400">
-              {product.name}
-            </span>
+    <article className="group overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-xl">
+      <Link
+        href={`/products/${product.id}`}
+        className="block"
+      >
+        <div className="relative aspect-square overflow-hidden bg-[#F3F4F1]">
+          {product.image ? (
+            <img
+              src={product.image}
+              alt={product.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-5 text-center">
+              <span className="text-sm font-semibold text-gray-400">
+                {product.name}
+              </span>
+            </div>
+          )}
+
+          <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+            {product.featured && (
+              <span className="rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-gray-900 shadow-sm">
+                Featured
+              </span>
+            )}
+
+            {product.badge && (
+              <span className="rounded-full bg-[#16A34A] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+                {product.badge}
+              </span>
+            )}
           </div>
-        )}
 
-        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-          {product.featured && (
-            <span className="rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-gray-900 shadow-sm">
-              Featured
+          {isOutOfStock && (
+            <span className="absolute right-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+              Out of stock
             </span>
           )}
 
-          {product.badge && (
-            <span className="rounded-full bg-[#16A34A] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
-              {product.badge}
-            </span>
-          )}
+          {!isOutOfStock &&
+            isLowStock && (
+              <span className="absolute right-3 top-3 rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+                Low stock
+              </span>
+            )}
         </div>
 
-        {isOutOfStock && (
-          <span className="absolute right-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
-            Out of stock
-          </span>
-        )}
+        <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+          <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">
+            {product.category}
+          </p>
 
-        {!isOutOfStock &&
-          isLowStock && (
-            <span className="absolute right-3 top-3 rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
-              Low stock
-            </span>
-          )}
-      </div>
+          <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-gray-900 transition group-hover:text-[#16A34A] sm:text-base">
+            {product.name}
+          </h3>
 
-      <div className="p-4 sm:p-5">
-        <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-gray-400">
-          {product.category}
-        </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {product.unit}
+          </p>
+        </div>
+      </Link>
 
-        <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-gray-900 sm:text-base">
-          {product.name}
-        </h3>
+      <div className="flex items-end justify-between gap-3 px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
+        <div>
+          <p className="text-lg font-bold text-[#111827] sm:text-xl">
+            {formatMoney(
+              product.price,
+              market.currency,
+              market.locale
+            )}
+          </p>
 
-        <p className="mt-1 text-xs text-gray-500">
-          {product.unit}
-        </p>
-
-        <div className="mt-4 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-lg font-bold text-[#111827] sm:text-xl">
-              {formatMoney(
-  product.price,
-  market.currency,
-  market.locale
-)}
-            </p>
-
-            <p className="mt-0.5 text-[11px] text-gray-400">
-              {isOutOfStock
-                ? "Unavailable"
+          <p className="mt-0.5 text-[11px] text-gray-400">
+            {isOutOfStock
+              ? "Unavailable"
+              : stockLimitReached
+                ? "Maximum in basket"
                 : isLowStock
                   ? `${product.stock} left`
                   : "In stock"}
-            </p>
-          </div>
-
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#16A34A] text-lg font-bold text-white transition group-hover:bg-[#15803D]">
-            +
-          </span>
+          </p>
         </div>
+
+        <button
+          type="button"
+          onClick={
+            handleQuickAdd
+          }
+          disabled={
+            stockLimitReached
+          }
+          aria-label={
+            stockLimitReached
+              ? `${product.name} maximum quantity reached`
+              : `Add ${product.name} to basket`
+          }
+          title={
+            stockLimitReached
+              ? "Maximum available quantity reached"
+              : "Add to basket"
+          }
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white transition ${
+            stockLimitReached
+              ? "cursor-not-allowed bg-gray-300"
+              : added
+                ? "bg-[#15803D]"
+                : "bg-[#16A34A] hover:bg-[#15803D] active:scale-95"
+          }`}
+        >
+          {added ? (
+            <Check
+              size={18}
+              strokeWidth={3}
+            />
+          ) : (
+            "+"
+          )}
+        </button>
       </div>
-    </Link>
+    </article>
   );
 }
 
 function ProductSkeletonGrid() {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      {Array.from({ length: 8 }).map(
-        (_, index) => (
-          <div
-            key={index}
-            className="overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white"
-          >
-            <div className="aspect-square animate-pulse bg-gray-100" />
+      {Array.from({
+        length: 8,
+      }).map((_, index) => (
+        <div
+          key={index}
+          className="overflow-hidden rounded-[1.5rem] border border-gray-200 bg-white"
+        >
+          <div className="aspect-square animate-pulse bg-gray-100" />
 
-            <div className="space-y-3 p-5">
-              <div className="h-3 w-24 animate-pulse rounded bg-gray-100" />
-              <div className="h-5 w-3/4 animate-pulse rounded bg-gray-100" />
-              <div className="h-4 w-16 animate-pulse rounded bg-gray-100" />
+          <div className="space-y-3 p-5">
+            <div className="h-3 w-24 animate-pulse rounded bg-gray-100" />
 
-              <div className="flex items-center justify-between pt-2">
-                <div className="h-6 w-20 animate-pulse rounded bg-gray-100" />
-                <div className="h-10 w-10 animate-pulse rounded-full bg-gray-100" />
-              </div>
+            <div className="h-5 w-3/4 animate-pulse rounded bg-gray-100" />
+
+            <div className="h-4 w-16 animate-pulse rounded bg-gray-100" />
+
+            <div className="flex items-center justify-between pt-2">
+              <div className="h-6 w-20 animate-pulse rounded bg-gray-100" />
+
+              <div className="h-10 w-10 animate-pulse rounded-full bg-gray-100" />
             </div>
           </div>
-        )
-      )}
+        </div>
+      ))}
     </div>
   );
 }

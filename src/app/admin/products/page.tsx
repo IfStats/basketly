@@ -15,6 +15,10 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  formatGhanaMoney,
+} from "@/lib/currency";
+
 type Product = {
   id: string;
   name: string;
@@ -754,7 +758,7 @@ export default function AdminProductsPage() {
               </div>
 
               <div className="grid gap-5 sm:grid-cols-3">
-                <FormField label="Price" type="number" min="0" step="0.01" value={form.price} onChange={(value) => updateForm("price", value)} placeholder="0.00" required />
+                <FormField label="Price (GHS)" type="number" min="0" step="0.01" value={form.price} onChange={(value) => updateForm("price", value)} placeholder="0.00" required />
                 <FormField label="Stock" type="number" min="0" step="1" value={form.stock} onChange={(value) => updateForm("stock", value)} placeholder="0" required />
                 <FormField label="Badge" value={form.badge} onChange={(value) => updateForm("badge", value)} placeholder="Fresh / Popular" />
               </div>
@@ -828,7 +832,11 @@ function ProductRow({ product, onEdit, onToggle, onToggleFeatured, onDelete }: {
             <p className="mt-1 text-xs text-gray-400">{product.category} · {product.unit}</p>
 
             <div className="mt-2 flex flex-wrap items-center gap-4">
-              <span className="text-lg font-bold text-[#16A34A]">${product.price.toFixed(2)}</span>
+              <span className="text-lg font-bold text-[#16A34A]">
+  {formatGhanaMoney(
+    product.price
+  )}
+</span>
               <span className={`text-xs font-semibold ${product.stock <= 0 ? "text-red-600" : lowStock ? "text-orange-600" : "text-gray-500"}`}>
                 {product.stock <= 0 ? "Out of stock" : `${product.stock} in stock`}
               </span>

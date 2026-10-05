@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/currency";
 import { calculateMarketDeliveryFee } from "@/lib/market-pricing";
+import {
+  isDeliveryServiceable,
+} from "@/config/serviceability";
 
 type OrderItemInput = {
   productId: string;
@@ -17,12 +20,13 @@ type CreateOrderInput = {
   };
 
   delivery: {
-    address: string;
-    area: string;
-    city: string;
-    notes?: string;
-    time: string;
-  };
+  countryCode: string;
+  address: string;
+  area: string;
+  city: string;
+  notes?: string;
+  time: string;
+};
 
   items: OrderItemInput[];
 
@@ -117,6 +121,7 @@ export async function POST(
     }
 
     if (
+      !body.delivery?.countryCode ||
       !body.delivery?.address ||
       !body.delivery?.area ||
       !body.delivery?.city ||
@@ -209,6 +214,33 @@ export async function POST(
               "MARKET_DELIVERY_UNAVAILABLE"
             );
           }
+
+          /*
+ * Delivery serviceability is
+ * server-authoritative.
+ *
+ * A client cannot submit a Lagos,
+ * London, etc. address against the
+ * Ghana market simply by editing
+ * the browser payload.
+ */
+if (
+  !isDeliveryServiceable({
+    marketCode:
+      market.code,
+
+    countryCode:
+      body.delivery
+        .countryCode,
+
+    city:
+      body.delivery.city,
+  })
+) {
+  throw new Error(
+    "DELIVERY_NOT_SERVICEABLE"
+  );
+}
 
           const products =
             await tx.product.findMany({
@@ -737,6 +769,22 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    if (
+  error instanceof Error &&
+  error.message ===
+    "DELIVERY_NOT_SERVICEABLE"
+) {
+  return NextResponse.json(
+    {
+      error:
+        "Basketly currently delivers only within supported Ghana service areas. For the pilot, delivery is available in Accra.",
+    },
+    {
+      status: 400,
+    }
+  );
+}
 
     if (
       error instanceof Error &&

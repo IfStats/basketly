@@ -647,20 +647,24 @@ export default function AdminMarketsPage() {
                 />
 
                 <Field
-                  label="Currency"
-                  value={
-                    form.currency
-                  }
-                  onChange={(
-                    value
-                  ) =>
-                    updateForm(
-                      "currency",
-                      value.toUpperCase()
-                    )
-                  }
-                  maxLength={3}
-                />
+  label="Currency"
+  value={form.currency}
+  onChange={(value) =>
+    updateForm(
+      "currency",
+      value.toUpperCase()
+    )
+  }
+  maxLength={3}
+  disabled={
+    editing.code === "GH"
+  }
+  helperText={
+    editing.code === "GH"
+      ? "GHS is locked while Basketly uses a single Ghana product-price field."
+      : "This market remains unavailable for customer orders until market-specific product pricing is implemented."
+  }
+/>
 
                 <Field
                   label="Locale"
@@ -868,6 +872,8 @@ function Field({
   step,
   maxLength,
   placeholder,
+  disabled = false,
+  helperText,
 }: {
   label: string;
   value: string;
@@ -879,6 +885,8 @@ function Field({
   step?: string;
   maxLength?: number;
   placeholder?: string;
+  disabled?: boolean;
+  helperText?: string;
 }) {
   return (
     <div>
@@ -887,25 +895,26 @@ function Field({
       </label>
 
       <input
-        type={type}
-        value={value}
-        min={min}
-        step={step}
-        maxLength={
-          maxLength
-        }
-        placeholder={
-          placeholder
-        }
-        onChange={(
-          event
-        ) =>
-          onChange(
-            event.target.value
-          )
-        }
-        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
-      />
+  type={type}
+  value={value}
+  min={min}
+  step={step}
+  maxLength={maxLength}
+  placeholder={placeholder}
+  disabled={disabled}
+  onChange={(event) =>
+    onChange(
+      event.target.value
+    )
+  }
+  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm outline-none transition focus:border-[#16A34A] focus:ring-2 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+/>
+
+{helperText && (
+  <p className="mt-2 text-xs leading-5 text-gray-400">
+    {helperText}
+  </p>
+)}
     </div>
   );
 }

@@ -20,6 +20,10 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  formatGhanaMoney,
+} from "@/lib/currency";
+
 type InventoryProduct = {
   id: string;
   name: string;
@@ -563,7 +567,10 @@ function InventoryRow({
               {product.name}
             </p>
             <p className="mt-1 text-xs text-gray-400">
-              {product.unit} · ${product.price.toFixed(2)}
+              {product.unit} ·{" "}
+{formatGhanaMoney(
+  product.price
+)}
             </p>
           </div>
         </div>

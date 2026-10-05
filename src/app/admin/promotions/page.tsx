@@ -15,6 +15,10 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  formatGhanaMoney,
+} from "@/lib/currency";
+
 type PromotionType =
   | "PERCENTAGE"
   | "FIXED_AMOUNT"
@@ -1100,14 +1104,14 @@ function PromotionRow({
               </span>
 
               {promotion.minimumOrder !==
-                null && (
-                <span>
-                  Minimum $
-                  {promotion.minimumOrder.toFixed(
-                    2
-                  )}
-                </span>
-              )}
+  null && (
+  <span>
+    Minimum{" "}
+    {formatGhanaMoney(
+      promotion.minimumOrder
+    )}
+  </span>
+)}
 
               <span>
                 {formatSegment(
@@ -1288,9 +1292,9 @@ function formatPromotionValue(
     return `${promotion.value}% off`;
   }
 
-  return `$${promotion.value.toFixed(
-    2
-  )} off`;
+  return `${formatGhanaMoney(
+  promotion.value
+)} off`;
 }
 
 function formatSegment(

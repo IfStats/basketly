@@ -4,42 +4,55 @@ import Link from "next/link";
 import {
   Menu,
   Search,
+  ShoppingBasket,
   ShoppingCart,
   X,
 } from "lucide-react";
+import {
+  usePathname,
+} from "next/navigation";
 import { useState } from "react";
-import { useCart } from "@/context/CartContext";
+
 import type {
   CountryCode,
 } from "@/config/countries";
+import { useCart } from "@/context/CartContext";
 import { useCountry } from "@/context/CountryContext";
 
 export default function Navbar() {
-  const [mobileOpen, setMobileOpen] =
-    useState(false);
+  const pathname = usePathname();
 
-  const { itemCount } = useCart();
+  const [
+    mobileOpen,
+    setMobileOpen,
+  ] = useState(false);
+
+  const { itemCount } =
+    useCart();
+
   const {
-  country,
-  markets,
-  setCountry,
-} = useCountry();
+    country,
+    markets,
+    setCountry,
+  } = useCountry();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur-xl">
       <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
         <Link
           href="/"
-          className="flex items-center gap-2"
+          className="flex items-center gap-3"
           onClick={() =>
             setMobileOpen(false)
           }
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#16A34A] text-xl shadow-sm">
-            🛒
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#16A34A] text-white shadow-sm">
+            <ShoppingBasket
+              size={21}
+            />
           </div>
 
-          <span className="text-2xl font-black tracking-tight text-[#111827]">
+          <span className="text-2xl font-black tracking-[-0.04em] text-[#111827]">
             Basket
             <span className="text-[#16A34A]">
               ly
@@ -48,39 +61,30 @@ export default function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          <Link
+          <DesktopLink
             href="/"
-            className="text-sm font-semibold text-gray-600 transition hover:text-[#16A34A]"
-          >
-            Home
-          </Link>
+            label="Home"
+            active={
+              pathname === "/"
+            }
+          />
 
-          <Link
+          <DesktopLink
             href="/shop"
-            className="text-sm font-semibold text-gray-600 transition hover:text-[#16A34A]"
-          >
-            Shop
-          </Link>
-
-          <Link
-            href="/deals"
-            className="text-sm font-semibold text-gray-600 transition hover:text-[#16A34A]"
-          >
-            Deals
-          </Link>
-
-          <Link
-            href="/delivery"
-            className="text-sm font-semibold text-gray-600 transition hover:text-[#16A34A]"
-          >
-            Delivery
-          </Link>
+            label="Shop"
+            active={
+              pathname === "/shop" ||
+              pathname.startsWith(
+                "/products/"
+              )
+            }
+          />
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <label className="relative">
+          <label>
             <span className="sr-only">
-              Country
+              Shopping market
             </span>
 
             <select
@@ -93,15 +97,24 @@ export default function Navbar() {
               }
               className="appearance-none rounded-full border border-gray-200 bg-gray-50 py-2.5 pl-3 pr-8 text-xs font-bold text-gray-700 outline-none transition hover:border-gray-300 focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
             >
-              {markets.map((item) => (
-                <option
-                  key={item.code}
-                  value={item.code}
-                >
-                  {item.flag} {item.code} ·{" "}
-                  {item.currency}
-                </option>
-              ))}
+              {markets.map(
+                (market) => (
+                  <option
+                    key={
+                      market.code
+                    }
+                    value={
+                      market.code
+                    }
+                  >
+                    {market.flag}{" "}
+                    {market.code} ·{" "}
+                    {
+                      market.currency
+                    }
+                  </option>
+                )
+              )}
             </select>
           </label>
 
@@ -118,7 +131,9 @@ export default function Navbar() {
             aria-label={`Shopping basket with ${itemCount} items`}
             className="relative flex h-11 w-11 items-center justify-center rounded-full bg-green-50 text-[#16A34A] transition hover:bg-green-100"
           >
-            <ShoppingCart size={21} />
+            <ShoppingCart
+              size={21}
+            />
 
             {itemCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F97316] px-1 text-[11px] font-bold text-white ring-2 ring-white">
@@ -133,7 +148,7 @@ export default function Navbar() {
             href="/shop"
             className="rounded-full bg-[#16A34A] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#15803D]"
           >
-            Shop Now
+            Shop now
           </Link>
         </div>
 
@@ -143,7 +158,9 @@ export default function Navbar() {
             aria-label={`Shopping basket with ${itemCount} items`}
             className="relative flex h-10 w-10 items-center justify-center rounded-full bg-green-50 text-[#16A34A]"
           >
-            <ShoppingCart size={20} />
+            <ShoppingCart
+              size={20}
+            />
 
             {itemCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F97316] px-1 text-[10px] font-bold text-white ring-2 ring-white">
@@ -163,10 +180,11 @@ export default function Navbar() {
             }
             onClick={() =>
               setMobileOpen(
-                (current) => !current
+                (current) =>
+                  !current
               )
             }
-            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
           >
             {mobileOpen ? (
               <X size={22} />
@@ -178,10 +196,10 @@ export default function Navbar() {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-gray-100 bg-white px-4 py-5 md:hidden">
-          <div className="mb-4">
+        <div className="border-t border-gray-100 bg-white px-5 py-5 md:hidden">
+          <div className="mb-5">
             <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-gray-400">
-              Shopping country
+              Shopping market
             </label>
 
             <select
@@ -194,15 +212,24 @@ export default function Navbar() {
               }
               className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold outline-none focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
             >
-              {markets.map((item) => (
-  <option
-    key={item.code}
-    value={item.code}
-  >
-    {item.flag} {item.name} ·{" "}
-    {item.currency}
-  </option>
-))}
+              {markets.map(
+                (market) => (
+                  <option
+                    key={
+                      market.code
+                    }
+                    value={
+                      market.code
+                    }
+                  >
+                    {market.flag}{" "}
+                    {market.name} ·{" "}
+                    {
+                      market.currency
+                    }
+                  </option>
+                )
+              )}
             </select>
           </div>
 
@@ -224,22 +251,6 @@ export default function Navbar() {
             />
 
             <MobileLink
-              href="/deals"
-              label="Deals"
-              onClick={() =>
-                setMobileOpen(false)
-              }
-            />
-
-            <MobileLink
-              href="/delivery"
-              label="Delivery"
-              onClick={() =>
-                setMobileOpen(false)
-              }
-            />
-
-            <MobileLink
               href="/cart"
               label={`Basket${
                 itemCount > 0
@@ -251,9 +262,46 @@ export default function Navbar() {
               }
             />
           </nav>
+
+          <Link
+            href="/shop"
+            onClick={() =>
+              setMobileOpen(false)
+            }
+            className="mt-4 flex w-full items-center justify-center rounded-full bg-[#16A34A] px-6 py-3.5 text-sm font-bold text-white"
+          >
+            Start shopping
+          </Link>
         </div>
       )}
     </header>
+  );
+}
+
+function DesktopLink({
+  href,
+  label,
+  active,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`relative py-2 text-sm font-semibold transition ${
+        active
+          ? "text-[#16A34A]"
+          : "text-gray-600 hover:text-[#16A34A]"
+      }`}
+    >
+      {label}
+
+      {active && (
+        <span className="absolute inset-x-0 -bottom-1 mx-auto h-0.5 rounded-full bg-[#16A34A]" />
+      )}
+    </Link>
   );
 }
 

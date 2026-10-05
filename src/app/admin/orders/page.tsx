@@ -10,6 +10,10 @@ import {
   Check,
 } from "lucide-react";
 
+import {
+  formatCurrency,
+} from "@/lib/currency";
+
 type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -23,20 +27,27 @@ type Order = {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+
+  marketCode: string;
+  currency: string;
+
   total: number;
   createdAt: string;
+
   customer: {
     firstName: string;
     lastName: string;
     email?: string;
     phone?: string;
   };
+
   items: {
     id: string;
     name: string;
     quantity: number;
     price: number;
   }[];
+
   delivery?: {
     status: string;
   } | null;
@@ -498,7 +509,10 @@ function OrderRow({
               </p>
 
               <p className="mt-1 text-lg font-bold text-[#16A34A]">
-                ${order.total.toFixed(2)}
+                {formatCurrency(
+  order.total,
+  order.currency ?? "GHS"
+)}
               </p>
             </div>
           </div>

@@ -14,10 +14,19 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  formatCurrency,
+  formatGhanaMoney,
+} from "@/lib/currency";
+
 type OrderSummary = {
   id: string;
   orderNumber: string;
   status: string;
+
+  marketCode: string;
+  currency: string;
+
   total: number;
   createdAt: string;
 };
@@ -133,8 +142,12 @@ export default function AdminCustomersPage() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Customers" value={metrics.total} icon={<Users size={19} />} />
           <MetricCard label="Returning customers" value={metrics.returning} icon={<RefreshCw size={19} />} />
-          <MetricCard label="Customer revenue" value={`$${metrics.revenue.toFixed(2)}`} icon={<ShoppingBag size={19} />} />
-          <MetricCard label="Avg. customer value" value={`$${metrics.averageCustomerValue.toFixed(2)}`} icon={<Users size={19} />} />
+          <MetricCard label="Customer revenue" value={formatGhanaMoney(
+  metrics.revenue
+)} icon={<ShoppingBag size={19} />} />
+          <MetricCard label="Avg. customer value" value={formatGhanaMoney(
+  metrics.averageCustomerValue
+)} icon={<Users size={19} />} />
         </div>
 
         <div className="mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -180,7 +193,9 @@ export default function AdminCustomersPage() {
 
                   <div className="flex flex-wrap items-center gap-8 lg:justify-end">
                     <CustomerStat label="Orders" value={String(customer.totalOrders)} />
-                    <CustomerStat label="Lifetime spend" value={`$${customer.lifetimeSpend.toFixed(2)}`} />
+                    <CustomerStat label="Lifetime spend" value={formatGhanaMoney(
+  customer.lifetimeSpend
+)} />
                     <CustomerStat label="Last order" value={customer.lastOrderAt ? new Date(customer.lastOrderAt).toLocaleDateString() : "Never"} />
                     <ChevronRight size={18} className="text-gray-300" />
                   </div>
@@ -214,8 +229,12 @@ export default function AdminCustomersPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <DetailCard label="Orders" value={selectedCustomer.totalOrders} />
-                <DetailCard label="Lifetime spend" value={`$${selectedCustomer.lifetimeSpend.toFixed(2)}`} />
-                <DetailCard label="Average order" value={`$${selectedCustomer.averageOrderValue.toFixed(2)}`} />
+                <DetailCard label="Lifetime spend" value={formatGhanaMoney(
+  selectedCustomer.lifetimeSpend
+)} />
+                <DetailCard label="Average order" value={formatGhanaMoney(
+  selectedCustomer.averageOrderValue
+)} />
                 <DetailCard label="Last order" value={selectedCustomer.lastOrderAt ? new Date(selectedCustomer.lastOrderAt).toLocaleDateString() : "Never"} />
               </div>
 
@@ -233,7 +252,12 @@ export default function AdminCustomersPage() {
                             <p className="mt-1 text-xs text-gray-400">{new Date(order.createdAt).toLocaleString()}</p>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-[#16A34A]">${order.total.toFixed(2)}</p>
+                            <p className="font-bold text-[#16A34A]">
+  {formatCurrency(
+    order.total,
+    order.currency ?? "GHS"
+  )}
+</p>
                             <p className="mt-1 text-xs font-semibold text-gray-500">{order.status.replaceAll("_", " ")}</p>
                           </div>
                         </div>

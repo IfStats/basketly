@@ -25,6 +25,10 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  formatGhanaMoney,
+} from "@/lib/currency";
+
 type ImportFileType = "csv" | "spreadsheet" | "json";
 
 type NormalizedProduct = {
@@ -1046,7 +1050,7 @@ function ReviewStep({
                     Category
                   </th>
                   <th className="px-5 py-3 font-bold">
-                    Price
+                    Price (GHS)
                   </th>
                   <th className="px-5 py-3 font-bold">
                     Stock
@@ -1139,13 +1143,11 @@ function ReviewStep({
                       </td>
 
                       <td className="px-5 py-4 font-semibold text-gray-800">
-                        {row.product
-                          .price ===
-                        null
-                          ? "—"
-                          : `$${row.product.price.toFixed(
-                              2
-                            )}`}
+                        {row.product.price === null
+  ? "—"
+  : formatGhanaMoney(
+      row.product.price
+    )}
                       </td>
 
                       <td className="px-5 py-4 text-gray-600">

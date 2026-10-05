@@ -217,6 +217,29 @@ export async function PATCH(
       );
     }
 
+    /*
+ * Ghana V1 pricing integrity.
+ *
+ * Product.price currently represents the
+ * Ghana retail price. Until ProductMarketPrice
+ * exists, changing Ghana's currency would only
+ * relabel the same numeric product prices.
+ */
+if (
+  existing.code === "GH" &&
+  currency !== "GHS"
+) {
+  return NextResponse.json(
+    {
+      error:
+        "Ghana currency must remain GHS until market-specific product pricing is implemented.",
+    },
+    {
+      status: 400,
+    }
+  );
+}
+
     const locale =
       body.locale !== undefined
         ? body.locale.trim()

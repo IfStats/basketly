@@ -18,6 +18,10 @@ import { useCountry } from "@/context/CountryContext";
 import { formatMoney } from "@/lib/currency";
 import { calculateMarketDeliveryFee } from "@/lib/market-pricing";
 
+import {
+  getServiceability,
+} from "@/config/serviceability";
+
 type PromotionPreview = {
   code: string;
   type: "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_DELIVERY";
@@ -32,6 +36,11 @@ export default function CheckoutPage() {
 
   const { config } =
   useCountry();
+
+  const serviceability =
+  getServiceability(
+    config.code
+  );
 
   const {
     items,
@@ -139,6 +148,15 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     setError("");
 
+    if (!serviceability) {
+  setError(
+    "Delivery is not currently available for this Basketly market."
+  );
+
+  setIsSubmitting(false);
+  return;
+}
+
     try {
       const formData = new FormData(event.currentTarget);
 
@@ -159,15 +177,20 @@ export default function CheckoutPage() {
         },
 
         delivery: {
-          address: String(
-            formData.get("address") || ""
-          ),
-          area: String(
-            formData.get("area") || ""
-          ),
-          city: String(
-            formData.get("city") || ""
-          ),
+  countryCode:
+    serviceability.countryCode,
+
+  address: String(
+    formData.get("address") || ""
+  ),
+
+  area: String(
+    formData.get("area") || ""
+  ),
+
+  city: String(
+    formData.get("city") || ""
+  ),
           notes: String(
             formData.get("deliveryNotes") || ""
           ),
@@ -416,20 +439,77 @@ router.push(
                 />
 
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <Input
-                    id="area"
-                    label="Area / Neighborhood"
-                    placeholder="e.g. East Legon"
-                    required
-                  />
+  <div>
+    <label
+      htmlFor="country"
+      className="mb-2 block text-sm font-semibold text-gray-700"
+    >
+      Country
+    </label>
 
-                  <Input
-                    id="city"
-                    label="City"
-                    placeholder="Accra"
-                    required
-                  />
-                </div>
+    <input
+      id="country"
+      value={
+        serviceability
+          ?.countryName ??
+        "Unavailable"
+      }
+      disabled
+      className="w-full cursor-not-allowed rounded-2xl border border-gray-200 bg-gray-100 px-4 py-3.5 text-sm font-semibold text-gray-500"
+    />
+
+    <p className="mt-2 text-xs text-gray-400">
+      Your delivery country is
+      determined by your Basketly
+      market.
+    </p>
+  </div>
+
+  <div>
+    <label
+      htmlFor="city"
+      className="mb-2 block text-sm font-semibold text-gray-700"
+    >
+      City
+    </label>
+
+    <select
+      id="city"
+      name="city"
+      required
+      disabled={
+        !serviceability
+      }
+      defaultValue=""
+      className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm outline-none transition focus:border-[#16A34A] focus:ring-2 focus:ring-green-100 disabled:cursor-not-allowed disabled:bg-gray-100"
+    >
+      <option
+        value=""
+        disabled
+      >
+        Select delivery city
+      </option>
+
+      {serviceability?.cities.map(
+        (city) => (
+          <option
+            key={city}
+            value={city}
+          >
+            {city}
+          </option>
+        )
+      )}
+    </select>
+  </div>
+</div>
+
+<Input
+  id="area"
+  label="Area / Neighborhood"
+  placeholder="e.g. East Legon"
+  required
+/>
 
                 <div>
                   <label
@@ -449,6 +529,10 @@ router.push(
                     placeholder="Landmark, gate instructions, or anything the rider should know..."
                     className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm outline-none transition focus:border-[#16A34A] focus:ring-2 focus:ring-green-100"
                   />
+                  <div className="mt-5 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm leading-6 text-green-800">
+  Basketly&apos;s current pilot
+  delivery area is Accra, Ghana.
+</div>
                 </div>
               </div>
             </div>
@@ -681,12 +765,19 @@ router.push(
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={
+  isSubmitting ||
+  !serviceability ||
+  !config.deliveryEnabled
+}
               className="mt-7 w-full rounded-full bg-[#16A34A] px-6 py-4 font-bold text-white transition hover:bg-[#15803D] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting
-                ? "Placing Order..."
-                : "Place Order"}
+  ? "Placing Order..."
+  : !serviceability ||
+      !config.deliveryEnabled
+    ? "Delivery unavailable"
+    : "Place Order"}
             </button>
 
             <p className="mt-4 text-center text-xs leading-5 text-gray-400">

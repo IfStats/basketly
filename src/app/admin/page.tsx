@@ -16,6 +16,11 @@ import {
   Users,
 } from "lucide-react";
 
+import {
+  formatCurrency,
+  formatGhanaMoney,
+} from "@/lib/currency";
+
 type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -29,14 +34,18 @@ type Order = {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+  marketCode: string;
+  currency: string;
   total: number;
   createdAt: string;
+
   customer: {
     firstName: string;
     lastName: string;
     email?: string;
     phone?: string;
   };
+
   items: {
     id: string;
     name: string;
@@ -401,8 +410,12 @@ export default function AdminDashboardPage() {
 
           <MetricCard
             title="Revenue"
-            value={`$${metrics.revenue.toFixed(2)}`}
-            description={`Avg. order $${metrics.averageOrderValue.toFixed(2)}`}
+            value={formatGhanaMoney(
+  metrics.revenue
+)}
+description={`Avg. order ${formatGhanaMoney(
+  metrics.averageOrderValue
+)}`}
             icon={<DollarSign size={20} />}
           />
 
@@ -765,7 +778,10 @@ function RecentOrderRow({
           </p>
 
           <p className="mt-1 text-sm font-bold text-[#16A34A]">
-            ${order.total.toFixed(2)}
+            {formatCurrency(
+  order.total,
+  order.currency ?? "GHS"
+)}
           </p>
         </div>
 

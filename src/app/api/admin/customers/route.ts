@@ -115,17 +115,22 @@ export async function GET(request: Request) {
 
         include: {
           orders: {
-            select: {
-              id: true,
-              orderNumber: true,
-              status: true,
-              total: true,
-              createdAt: true,
-            },
-            orderBy: {
-              createdAt: "desc",
-            },
-          },
+  select: {
+    id: true,
+    orderNumber: true,
+    status: true,
+
+    marketCode: true,
+    currency: true,
+
+    total: true,
+    createdAt: true,
+  },
+
+  orderBy: {
+    createdAt: "desc",
+  },
+},
         },
       });
 

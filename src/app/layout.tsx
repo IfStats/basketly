@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+} from "next/font/google";
+
 import "./globals.css";
+
+import StorefrontShell from "@/components/layout/StorefrontShell";
 import { CartProvider } from "@/context/CartContext";
 import { CountryProvider } from "@/context/CountryContext";
 
@@ -16,9 +22,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Basketly | Fresh groceries, delivered",
+    default:
+      "Basketly | Fresh groceries, delivered",
     template: "%s | Basketly",
   },
+
   description:
     "Shop groceries, household essentials, drinks, snacks, and everyday necessities with Basketly.",
 };
@@ -36,7 +44,9 @@ export default function RootLayout({
       <body>
         <CountryProvider>
           <CartProvider>
-            {children}
+            <StorefrontShell>
+              {children}
+            </StorefrontShell>
           </CartProvider>
         </CountryProvider>
       </body>
